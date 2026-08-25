@@ -58,10 +58,39 @@ public final class Coords
         return LocalPoint.fromWorld(client, wp);
     }
 
-    public static final int BLOCKED_MASK = net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_FULL
-        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_FLOOR
-        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_FLOOR_DECORATION
-        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_OBJECT;
+    /**
+     * Flags that leave a tile standable. A wall on one edge, or something
+     * blocking line of sight across it, still lets a creature occupy the tile.
+     */
+    private static final int STANDABLE_MASK =
+        net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_NORTH_WEST
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_NORTH
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_NORTH_EAST
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_EAST
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_SOUTH_EAST
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_SOUTH
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_SOUTH_WEST
+        | net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_WEST
+        | net.runelite.api.CollisionDataFlag.BLOCK_LINE_OF_SIGHT_NORTH
+        | net.runelite.api.CollisionDataFlag.BLOCK_LINE_OF_SIGHT_EAST
+        | net.runelite.api.CollisionDataFlag.BLOCK_LINE_OF_SIGHT_SOUTH
+        | net.runelite.api.CollisionDataFlag.BLOCK_LINE_OF_SIGHT_WEST
+        | net.runelite.api.CollisionDataFlag.BLOCK_LINE_OF_SIGHT_FULL;
+
+    /**
+     * Whether a creature can stand on a tile carrying these collision flags.
+     *
+     * This is an ALLOWLIST on purpose. It used to be a blocklist of the flags
+     * RuneLite happens to name, which meant any bit the game client sets that
+     * the API has no constant for read as open floor. Dungeon rock carries
+     * 0x40000000, which RuneLite does not name, so monsters were placed inside
+     * walls. Treating every unrecognised bit as solid fixes that bit and any
+     * other the client may set.
+     */
+    public static boolean walkableFlags(int flags)
+    {
+        return (flags & ~STANDABLE_MASK) == 0;
+    }
 
     /**
      * Walkability of a template-space tile on the player's current plane.
@@ -77,7 +106,7 @@ public final class Coords
             return null;
         }
         int flags = maps[plane].getFlags()[lp.getSceneX()][lp.getSceneY()];
-        return (flags & BLOCKED_MASK) == 0;
+        return walkableFlags(flags);
     }
 
     private Coords()

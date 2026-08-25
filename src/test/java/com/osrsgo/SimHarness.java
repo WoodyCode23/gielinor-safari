@@ -316,6 +316,40 @@ public class SimHarness
             throw new IllegalStateException("seizure pressure must stay linear below the clamp");
         }
         System.out.println("Formula shape: interior, monotonic, linear below the clamp");
+        // Collision flags are an ALLOWLIST: a tile is standable only when every
+        // bit set on it is one we know is harmless. The old blocklist called
+        // 0x40000000 walkable purely because RuneLite has no name for it, which
+        // put monsters inside dungeon walls.
+        if (!com.osrsgo.spawn.Coords.walkableFlags(0))
+        {
+            throw new IllegalStateException("plain floor must be walkable");
+        }
+        if (com.osrsgo.spawn.Coords.walkableFlags(0x40000000))
+        {
+            throw new IllegalStateException("0x40000000 is solid in game and must not be walkable");
+        }
+        if (com.osrsgo.spawn.Coords.walkableFlags(net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_FULL)
+            || com.osrsgo.spawn.Coords.walkableFlags(net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_OBJECT)
+            || com.osrsgo.spawn.Coords.walkableFlags(net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_FLOOR))
+        {
+            throw new IllegalStateException("known blocking flags must stay blocked");
+        }
+        // A wall on one edge, or a line-of-sight block, still leaves the tile
+        // standable: those must NOT be treated as blocked or open floor beside
+        // any wall would stop spawning
+        if (!com.osrsgo.spawn.Coords.walkableFlags(net.runelite.api.CollisionDataFlag.BLOCK_MOVEMENT_WEST)
+            || !com.osrsgo.spawn.Coords.walkableFlags(net.runelite.api.CollisionDataFlag.BLOCK_LINE_OF_SIGHT_FULL))
+        {
+            throw new IllegalStateException("edge walls and line-of-sight blocks are still standable");
+        }
+        // Any unknown bit at all is treated as solid, which is what makes this
+        // robust to client flags nobody has named yet
+        if (com.osrsgo.spawn.Coords.walkableFlags(1 << 29))
+        {
+            throw new IllegalStateException("unknown flag bits must default to blocked");
+        }
+        System.out.println("Collision: allowlist blocks unnamed bits, keeps edge walls standable");
+
         System.out.println("SIM OK");
     }
 

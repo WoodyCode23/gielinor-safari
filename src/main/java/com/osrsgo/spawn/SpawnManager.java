@@ -395,7 +395,6 @@ public class SpawnManager
      * True/false when the tile's collision data is loaded in the current
      * scene, null when unknown (outside the scene or no collision map).
      */
-    private static final int BLOCKED_MASK = Coords.BLOCKED_MASK;
 
     private static Boolean walkable(Client client, int worldX, int worldY)
     {
@@ -418,7 +417,7 @@ public class SpawnManager
                     continue;
                 }
                 int flags = maps[p.getPlane()].getFlags()[sceneX][sceneY];
-                return (flags & BLOCKED_MASK) == 0;
+                return Coords.walkableFlags(flags);
             }
             return null;
         }
@@ -433,7 +432,7 @@ public class SpawnManager
             return null;
         }
         int flags = maps[0].getFlags()[sceneX][sceneY];
-        return (flags & BLOCKED_MASK) == 0;
+        return Coords.walkableFlags(flags);
     }
 
     private static long seed(int regionId, long bucket)

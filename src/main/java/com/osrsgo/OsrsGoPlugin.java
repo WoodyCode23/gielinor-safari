@@ -3461,6 +3461,56 @@ public class OsrsGoPlugin extends Plugin
         return added;
     }
 
+    /**
+     * What the placement check sees at one tile. Reports the player's plane
+     * and plane 0 separately because the walkability check reads plane 0
+     * unconditionally, and reports whether a Tile exists at all, because a
+     * tile in the void has no collision flags to be blocked by.
+     */
+    private String tileReport(WorldPoint wp)
+    {
+        if (wp == null)
+        {
+            return "(no location)";
+        }
+        int sx = wp.getX() - client.getBaseX();
+        int sy = wp.getY() - client.getBaseY();
+        if (sx < 0 || sx >= 104 || sy < 0 || sy >= 104)
+        {
+            return "off-scene";
+        }
+        int plane = client.getPlane();
+        net.runelite.api.CollisionData[] maps = client.getCollisionMaps();
+        String here = "n/a";
+        String ground = "n/a";
+        boolean blocked = false;
+        if (maps != null)
+        {
+            if (plane >= 0 && plane < maps.length && maps[plane] != null)
+            {
+                int f = maps[plane].getFlags()[sx][sy];
+                here = "0x" + Integer.toHexString(f);
+                blocked = !com.osrsgo.spawn.Coords.walkableFlags(f);
+            }
+            if (maps[0] != null)
+            {
+                ground = "0x" + Integer.toHexString(maps[0].getFlags()[sx][sy]);
+            }
+        }
+        boolean tileExists = false;
+        try
+        {
+            net.runelite.api.Scene scene = client.getScene();
+            tileExists = scene != null && scene.getTiles()[plane][sx][sy] != null;
+        }
+        catch (Exception e)
+        {
+            // Diagnostic must never throw
+        }
+        return "flags(p" + plane + ")=" + here + " flags(p0)=" + ground
+            + " blockedByUs=" + blocked + " tileExists=" + tileExists;
+    }
+
     @Subscribe
     public void onCommandExecuted(net.runelite.api.events.CommandExecuted event)
     {
@@ -3525,6 +3575,52 @@ public class OsrsGoPlugin extends Plugin
                     chatAlways("  " + line);
                 }
             }
+            return;
+        }
+        if ("gospawn".equalsIgnoreCase(event.getCommand()))
+        {
+            // Diagnostic only: dumps what the placement check actually sees for
+            // the player's tile and each nearby spawn, so a bad placement can
+            // be attributed to real data rather than guessed at
+            clientThread.invoke(() ->
+            {
+                StringBuilder out = new StringBuilder();
+                out.append("plane=").append(client.getPlane())
+                    .append(" base=").append(client.getBaseX()).append(',').append(client.getBaseY())
+                    .append(" instanced=").append(client.isInInstancedRegion())
+                    .append(" regions=");
+                int[] regions = client.getMapRegions();
+                if (regions != null)
+                {
+                    for (int r : regions)
+                    {
+                        out.append(r).append(' ');
+                    }
+                }
+                out.append('\n');
+                out.append("you  @").append(playerLocation != null ? playerLocation.getX() : -1)
+                    .append(',').append(playerLocation != null ? playerLocation.getY() : -1)
+                    .append("  ").append(tileReport(playerLocation)).append('\n');
+                for (WildSpawn s : nearbySpawns)
+                {
+                    out.append(String.format("%-22s", s.species().getName()))
+                        .append('@').append(s.location.getX()).append(',').append(s.location.getY())
+                        .append("  verified=").append(s.placementVerified)
+                        .append("  ").append(tileReport(s.location)).append('\n');
+                }
+                try
+                {
+                    java.io.File report = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
+                        "osrsgo-spawn-report.txt");
+                    java.nio.file.Files.write(report.toPath(),
+                        out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
+                    chatAlways("Gielinor Safari: spawn report written to " + report.getAbsolutePath());
+                }
+                catch (Exception e)
+                {
+                    chatAlways("Gielinor Safari: could not write spawn report: " + e.getMessage());
+                }
+            });
             return;
         }
         if ("gocandy".equalsIgnoreCase(event.getCommand()))
