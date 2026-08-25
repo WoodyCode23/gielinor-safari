@@ -113,20 +113,12 @@ public class GoOverlay extends Overlay
         int oppHp = -1;
         int oppMax = 1;
         com.osrsgo.battle.BattleSession session = plugin.getSession();
-        com.osrsgo.battle.CoopRaid raid = plugin.getCoopRaid();
         if (session != null)
         {
             myHp = session.myMon().hp;
             myMax = session.myMon().maxHp;
             oppHp = session.oppMon().hp;
             oppMax = session.oppMon().maxHp;
-        }
-        else if (raid != null && raid.me() != null)
-        {
-            myHp = raid.me().mon.hp;
-            myMax = raid.me().mon.maxHp;
-            oppHp = raid.boss.hp;
-            oppMax = Math.max(raid.boss.hp, raid.host ? raid.bossMaxHp() : raid.boss.maxHp);
         }
         else
         {

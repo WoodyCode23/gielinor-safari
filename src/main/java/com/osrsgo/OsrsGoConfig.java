@@ -110,7 +110,7 @@ public interface OsrsGoConfig extends Config
     @ConfigItem(
         keyName = "gymControl",
         name = "Gym control",
-        description = "Claim and hold gyms against rival trainers, and against party members when you are in a party.",
+        description = "Claim and hold gyms against rival trainers.",
         position = 5
     )
     default boolean gymControl()

@@ -18,8 +18,8 @@ later (see Forward Path) without a redesign.
 ## Non-goals
 
 - Global or cross-player gym state outside a party. That is Phase 2.
-- Replacing PvP battles, trading, or co-op raids. Those already run
-  over RuneLite's own Party service and are untouched.
+- Replacing PvP battles or trading. Those already run over RuneLite's
+  own Party service and are untouched.
 - Changing the deterministic spawn engine, breeding, raids, or the
   GielDex.
 

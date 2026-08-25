@@ -383,9 +383,7 @@ public class OsrsGoPanel extends PluginPanel
             .append(st.pvpWins).append(':').append(st.pvpLosses).append(':')
             .append(st.gymsCaptured).append(':').append(st.eggsHatched)
             .append(':').append(profile.tilesWalked / 50).append(':').append(plugin.gymsHeldNow())
-            .append(':').append(profile.earnedMedals.size())
-            .append(':').append(plugin.getCoopRaid() != null ? plugin.getCoopRaid().fingerprint() : "")
-            .append(':').append(plugin.getPendingRaidHost());
+            .append(':').append(profile.earnedMedals.size());
         for (com.osrsgo.model.Egg egg : profile.eggs)
         {
             sb.append(egg.tilesRequired).append(',').append(egg.tilesProgress / 25).append(';');
@@ -2902,29 +2900,7 @@ public class OsrsGoPanel extends PluginPanel
                     tabs.setSelectedIndex(3);
                 }
             });
-            if (plugin.isInParty())
-            {
-                JButton partyRaidBtn = new JButton("Party raid");
-                partyRaidBtn.setEnabled(inRange && !challenged);
-                partyRaidBtn.setToolTipText("Fight it together: shared boss HP scaled to party size, everyone rolls catches");
-                partyRaidBtn.addActionListener(e ->
-                {
-                    String err = plugin.startCoopRaid(gym.id);
-                    if (err != null)
-                    {
-                        showToast(err);
-                    }
-                    else
-                    {
-                        tabs.setSelectedIndex(3);
-                    }
-                });
-                row.add(buttonStrip(partyRaidBtn, raidBtn, battleBtn));
-            }
-            else
-            {
-                row.add(buttonStrip(raidBtn, battleBtn));
-            }
+            row.add(buttonStrip(raidBtn, battleBtn));
         }
         else
         {
@@ -2943,12 +2919,6 @@ public class OsrsGoPanel extends PluginPanel
     private void rebuildBattle()
     {
         battleContent.removeAll();
-        com.osrsgo.battle.CoopRaid raid = plugin.getCoopRaid();
-        if (raid != null)
-        {
-            rebuildCoopRaid(raid);
-            return;
-        }
         BattleSession session = plugin.getSession();
         if (session == null)
         {
@@ -3038,138 +3008,8 @@ public class OsrsGoPanel extends PluginPanel
         battleContent.add(logArea);
     }
 
-    private void rebuildCoopRaid(com.osrsgo.battle.CoopRaid raid)
-    {
-        Species boss = com.osrsgo.data.SpeciesData.byId(raid.bossSpeciesId);
-        JLabel title = new JLabel("PARTY RAID: " + boss.getName() + " lvl " + raid.bossLevel);
-        title.setIcon(iconFor(boss));
-        title.setIconTextGap(6);
-        title.setForeground(new Color(220, 120, 255));
-        title.setFont(title.getFont().deriveFont(Font.BOLD, 13f));
-        title.setAlignmentX(Component.LEFT_ALIGNMENT);
-        battleContent.add(title);
-        battleContent.add(Box.createVerticalStrut(4));
-
-        int bossMax = raid.host ? raid.bossMaxHp() : Math.max(raid.boss.hp, raid.boss.maxHp);
-        JProgressBar bossBar = new JProgressBar(0, Math.max(1, bossMax));
-        bossBar.setValue(Math.max(0, raid.boss.hp));
-        bossBar.setStringPainted(true);
-        bossBar.setString(raid.boss.hp + " HP");
-        bossBar.setForeground(new Color(200, 60, 200));
-        bossBar.setMaximumSize(new Dimension(Integer.MAX_VALUE, 18));
-        bossBar.setAlignmentX(Component.LEFT_ALIGNMENT);
-        battleContent.add(bossBar);
-        battleContent.add(Box.createVerticalStrut(6));
-
-        for (com.osrsgo.battle.CoopRaid.Participant p : raid.participants.values())
-        {
-            JLabel line = new JLabel(p.name + ": " + p.mon.name + "  "
-                + Math.max(0, p.mon.hp) + "/" + p.mon.maxHp + (p.alive ? "" : "  FAINTED"));
-            line.setForeground(p.alive
-                ? (p.memberId == raid.myMemberId ? new Color(120, 220, 120) : ColorScheme.LIGHT_GRAY_COLOR)
-                : new Color(150, 90, 90));
-            line.setFont(line.getFont().deriveFont(11f));
-            line.setAlignmentX(Component.LEFT_ALIGNMENT);
-            battleContent.add(line);
-        }
-        battleContent.add(Box.createVerticalStrut(6));
-
-        if (!raid.started)
-        {
-            String guestRoster = raid.lobbyNames.isEmpty()
-                ? "" : " In so far: " + String.join(", ", raid.lobbyNames) + ".";
-            battleContent.add(hint(raid.host
-                ? "Waiting for party members to join (" + raid.participants.size() + " in). Begin when ready."
-                : "Joined! Waiting for the host to begin..." + guestRoster));
-            if (raid.host)
-            {
-                JButton begin = new JButton("Begin raid (" + raid.participants.size() + ")");
-                begin.setAlignmentX(Component.LEFT_ALIGNMENT);
-                begin.addActionListener(e -> plugin.beginCoopRaid());
-                battleContent.add(begin);
-            }
-        }
-        else if (!raid.finished)
-        {
-            com.osrsgo.battle.CoopRaid.Participant mine = raid.me();
-            if (mine != null && mine.alive)
-            {
-                boolean waiting = mine.pendingMove != null;
-                JPanel moves = new JPanel(new java.awt.GridLayout(0, 2, 4, 4));
-                moves.setOpaque(false);
-                moves.setAlignmentX(Component.LEFT_ALIGNMENT);
-                for (int i = 0; i < mine.mon.moveIds.size(); i++)
-                {
-                    Move move = MoveData.byId(mine.mon.moveIds.get(i));
-                    JButton btn = new JButton(move.isGuard() ? move.getName()
-                        : move.getName() + " (" + move.getPower() + ")");
-                    btn.setEnabled(!waiting);
-                    final int idx = i;
-                    btn.addActionListener(e -> plugin.coopRaidMove(idx));
-                    moves.add(btn);
-                }
-                battleContent.add(moves);
-                if (waiting)
-                {
-                    battleContent.add(hint("Waiting for the rest of the party..."));
-                }
-            }
-            else
-            {
-                battleContent.add(hint("Your mon is down. Cheer from the sidelines!"));
-            }
-        }
-        else
-        {
-            JLabel result = new JLabel(raid.wonByUs ? "RAID CLEARED!" : "RAID FAILED");
-            result.setFont(new Font(Font.SANS_SERIF, Font.BOLD, 15));
-            result.setForeground(raid.wonByUs ? new Color(80, 220, 80) : ColorScheme.PROGRESS_ERROR_COLOR);
-            result.setAlignmentX(Component.LEFT_ALIGNMENT);
-            battleContent.add(result);
-            JButton close = new JButton("Close");
-            close.setAlignmentX(Component.LEFT_ALIGNMENT);
-            close.addActionListener(e -> plugin.leaveCoopRaid());
-            battleContent.add(close);
-        }
-
-        battleContent.add(Box.createVerticalStrut(6));
-        JTextArea logArea = new JTextArea();
-        logArea.setEditable(false);
-        logArea.setLineWrap(true);
-        logArea.setWrapStyleWord(true);
-        logArea.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        logArea.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-        logArea.setFont(logArea.getFont().deriveFont(11f));
-        List<String> log = raid.fullLog;
-        int from = Math.max(0, log.size() - 14);
-        StringBuilder sb = new StringBuilder();
-        for (int i = from; i < log.size(); i++)
-        {
-            sb.append(log.get(i)).append('\n');
-        }
-        logArea.setText(sb.toString());
-        logArea.setAlignmentX(Component.LEFT_ALIGNMENT);
-        battleContent.add(logArea);
-    }
-
     private void rebuildLobby()
     {
-        if (plugin.getPendingRaidHost() != null)
-        {
-            JPanel card = stackRow();
-            JLabel title = new JLabel(plugin.getPendingRaidHost() + " is raiding "
-                + plugin.getPendingRaidBossDesc() + "!");
-            title.setForeground(new Color(220, 120, 255));
-            title.setFont(title.getFont().deriveFont(Font.BOLD));
-            card.add(title);
-            JButton join = new JButton("Join raid");
-            join.addActionListener(e -> plugin.joinCoopRaid());
-            JButton skip = new JButton("Ignore");
-            skip.addActionListener(e -> plugin.declineCoopRaid());
-            card.add(buttonStrip(skip, join));
-            battleContent.add(card);
-            battleContent.add(Box.createVerticalStrut(4));
-        }
         addIncomingTradeCard();
         addOutgoingTradeCard();
         String pendingChallenger = plugin.getPendingChallengerName();

@@ -68,12 +68,6 @@ public class OsrsGoPlugin extends Plugin
     private static final int TILES_PER_BUDDY_XP = 10;
     private static final int BUDDY_XP_PER_GRANT = 2;
     private static final int MAX_STEP = 6;
-    // A real claim can never exceed the game's team cap; anything larger is a
-    // malformed or hostile peer, not a legitimate claim
-    private static final int MAX_CLAIM_TEAM = 5;
-    // Accepted party breaks, per sender, so a peer cannot spam them
-    private static final long BREAK_COOLDOWN_MS = 60_000L;
-    private final java.util.Map<Long, Long> lastBreakFromMember = new java.util.HashMap<>();
 
     @Inject
     private Client client;
@@ -166,6 +160,12 @@ public class OsrsGoPlugin extends Plugin
     private int gymPollCounter;
     // ~15s: gym flips should feel near-live during a war
     private static final int GYM_POLL_TICKS = 25;
+    // A real claim can never exceed the game's team cap; anything larger is a
+    // malformed or hostile peer, not a legitimate claim
+    private static final int MAX_CLAIM_TEAM = 5;
+    // Accepted party breaks, per sender, so a peer cannot spam them
+    private static final long BREAK_COOLDOWN_MS = 60_000L;
+    private final java.util.Map<Long, Long> lastBreakFromMember = new java.util.HashMap<>();
     // Rival pressure is a per-rotation roll, but pollGyms runs every ~15s.
     // Without this gate the roll fires ~40 times a bucket and a 5% chance
     // becomes ~87%, which would make holding gyms nearly impossible.
@@ -234,10 +234,6 @@ public class OsrsGoPlugin extends Plugin
         wsClient.registerMessage(com.osrsgo.party.TradeOfferMsg.class);
         wsClient.registerMessage(com.osrsgo.party.TradeUpdateMsg.class);
         wsClient.registerMessage(com.osrsgo.party.TradeCancelMsg.class);
-        wsClient.registerMessage(com.osrsgo.party.RaidStartMsg.class);
-        wsClient.registerMessage(com.osrsgo.party.RaidJoinMsg.class);
-        wsClient.registerMessage(com.osrsgo.party.RaidMoveMsg.class);
-        wsClient.registerMessage(com.osrsgo.party.RaidStateMsg.class);
         wsClient.registerMessage(com.osrsgo.party.GymClaimMsg.class);
         wsClient.registerMessage(com.osrsgo.party.GymBreakMsg.class);
 
@@ -271,10 +267,6 @@ public class OsrsGoPlugin extends Plugin
         wsClient.unregisterMessage(com.osrsgo.party.TradeOfferMsg.class);
         wsClient.unregisterMessage(com.osrsgo.party.TradeUpdateMsg.class);
         wsClient.unregisterMessage(com.osrsgo.party.TradeCancelMsg.class);
-        wsClient.unregisterMessage(com.osrsgo.party.RaidStartMsg.class);
-        wsClient.unregisterMessage(com.osrsgo.party.RaidJoinMsg.class);
-        wsClient.unregisterMessage(com.osrsgo.party.RaidMoveMsg.class);
-        wsClient.unregisterMessage(com.osrsgo.party.RaidStateMsg.class);
         wsClient.unregisterMessage(com.osrsgo.party.GymClaimMsg.class);
         wsClient.unregisterMessage(com.osrsgo.party.GymBreakMsg.class);
 
@@ -333,7 +325,7 @@ public class OsrsGoPlugin extends Plugin
             // loaded profile ONLY when it's provably newer AND not a husk: a
             // torn read (save race) yields a fresh/empty profile and must
             // never replace real data (the 2026-08-10 wipe).
-            if (session == null && coopRaid == null && activeCatch == null && !profileDirty)
+            if (session == null && activeCatch == null && !profileDirty)
             {
                 PlayerProfile candidate = profileStore.load();
                 synchronized (this)
@@ -894,27 +886,6 @@ public class OsrsGoPlugin extends Plugin
         }
         segMs[1] = (System.nanoTime() - segT) / 1_000_000L;
 
-        // Host-side AFK guard: after ~30s of waiting, laggards auto-throw their
-        // first move so one idle party member can't stall the raid
-        if (coopRaid != null && coopRaid.host && coopRaid.started && !coopRaid.finished)
-        {
-            coopRaid.ticksThisTurn++;
-            if (coopRaid.ticksThisTurn > 50 && !coopRaid.allMovesIn())
-            {
-                synchronized (this)
-                {
-                    List<String> log = coopRaid.resolveTurn();
-                    battleScene.clash();
-                    broadcastRaidState(log);
-                    if (coopRaid.finished)
-                    {
-                        settleCoopRaid();
-                    }
-                }
-                refreshPanel();
-            }
-        }
-
         segT = System.nanoTime();
         spawnManager.update(client);
         nearbySpawns = spawnManager.nearby(playerLocation, NEARBY_RANGE);
@@ -943,10 +914,6 @@ public class OsrsGoPlugin extends Plugin
             if (session != null && !session.finished)
             {
                 battleScene.ensure(session.myMon().speciesId, session.oppMon().speciesId, playerLocation);
-            }
-            else if (coopRaid != null && coopRaid.started && !coopRaid.finished && coopRaid.me() != null)
-            {
-                battleScene.ensure(coopRaid.me().mon.speciesId, coopRaid.bossSpeciesId, playerLocation);
             }
             else if (raidCatchPlaying())
             {
@@ -1888,229 +1855,6 @@ public class OsrsGoPlugin extends Plugin
         return Math.min(7, 2 + profile.trainerLevel() / 20);
     }
 
-    // ------------------------------------------------------------------ co-op raids over party
-
-    private com.osrsgo.battle.CoopRaid coopRaid;
-    private OwnedMon coopRaidMonRef;
-    private String pendingRaidKey;
-    private String pendingRaidGymId;
-    private String pendingRaidHost;
-    private int pendingRaidBossId;
-    private int pendingRaidBossLevel;
-    private long pendingRaidHostMemberId;
-
-    public com.osrsgo.battle.CoopRaid getCoopRaid()
-    {
-        return coopRaid;
-    }
-
-    public String getPendingRaidHost()
-    {
-        return pendingRaidHost;
-    }
-
-    public String getPendingRaidBossDesc()
-    {
-        return pendingRaidKey != null
-            ? com.osrsgo.data.SpeciesData.byId(pendingRaidBossId).getName() + " lvl " + pendingRaidBossLevel
-            : null;
-    }
-
-    /** First battle-ready team mon, the one you bring to a co-op raid. */
-    private OwnedMon raidMon()
-    {
-        List<OwnedMon> ready = battleReadyTeam();
-        return ready.isEmpty() ? null : ready.get(0);
-    }
-
-    public synchronized String startCoopRaid(String gymIdArg)
-    {
-        if (!partyService.isInParty() || partyService.getLocalMember() == null)
-        {
-            return "Join a RuneLite party first.";
-        }
-        autoCloseFinishedBattle();
-        if (coopRaid != null || session != null)
-        {
-            return "Already in a battle.";
-        }
-        GymData.Gym gym = GymData.byId(gymIdArg);
-        com.osrsgo.data.RaidData.Raid raid = gym != null ? raidAtGym(gym.id) : null;
-        if (raid == null)
-        {
-            return "No raid boss here right now.";
-        }
-        if (raidAlreadyAttempted(gym.id))
-        {
-            return "You already challenged this raid boss. A new one arrives next rotation.";
-        }
-        if (!inGymRange(gym))
-        {
-            return "Walk to the gym mark first.";
-        }
-        OwnedMon mine = raidMon();
-        if (mine == null)
-        {
-            return teamError();
-        }
-        coopRaidMonRef = mine;
-        long self = localMemberId();
-        String raidKey = self + "-r-" + System.currentTimeMillis();
-        coopRaid = new com.osrsgo.battle.CoopRaid(raidKey, gym.id, raid.speciesId, raid.level, true, self);
-        coopRaid.participants.put(self, new com.osrsgo.battle.CoopRaid.Participant(
-            self, localName(), BattleMon.fromOwned(mine)));
-        coopRaid.fullLog.add("You rally the party against " + coopRaid.bossName() + " at " + gym.name + "...");
-        partyService.send(new com.osrsgo.party.RaidStartMsg(raidKey, gym.id, raid.speciesId, raid.level,
-            localName(), gson.toJson(MonSpec.fromOwned(mine))));
-        refreshPanel();
-        return null;
-    }
-
-    public synchronized void joinCoopRaid()
-    {
-        autoCloseFinishedBattle();
-        if (pendingRaidKey == null)
-        {
-            panelToast("That raid is no longer recruiting.");
-            return;
-        }
-        if (coopRaid != null || session != null)
-        {
-            chatAlways("Gielinor Safari: finish or close your current battle before joining the raid!");
-            panelToast("Finish your current battle first.");
-            return;
-        }
-        if (pendingRaidGymId != null && raidAlreadyAttempted(pendingRaidGymId))
-        {
-            chatAlways("Gielinor Safari: you already challenged this raid boss. A new one arrives next rotation.");
-            panelToast("Already challenged this raid boss.");
-            return;
-        }
-        OwnedMon mine = raidMon();
-        if (mine == null)
-        {
-            chatAlways("Gielinor Safari: " + teamError() + " (Raid join failed.)");
-            panelToast(teamError());
-            return;
-        }
-        coopRaidMonRef = mine;
-        long self = localMemberId();
-        coopRaid = new com.osrsgo.battle.CoopRaid(pendingRaidKey, pendingRaidGymId,
-            pendingRaidBossId, pendingRaidBossLevel, false, self);
-        coopRaid.fullLog.add("You join " + pendingRaidHost + "'s raid on " + coopRaid.bossName() + "!");
-        partyService.send(new com.osrsgo.party.RaidJoinMsg(pendingRaidKey, localName(),
-            gson.toJson(MonSpec.fromOwned(mine))));
-        // Guests learn the roster from host snapshots; seed self so move buttons work
-        coopRaid.participants.put(self, new com.osrsgo.battle.CoopRaid.Participant(
-            self, localName(), BattleMon.fromOwned(mine)));
-        chatMessage("Gielinor Safari: joined the raid! Waiting for the host to begin...");
-        pendingRaidKey = null;
-        refreshPanel();
-    }
-
-    public synchronized void declineCoopRaid()
-    {
-        pendingRaidKey = null;
-        refreshPanel();
-    }
-
-    /** Host presses Begin once everyone who wants in has joined. */
-    public synchronized void beginCoopRaid()
-    {
-        if (coopRaid == null || !coopRaid.host || coopRaid.started)
-        {
-            return;
-        }
-        coopRaid.begin();
-        broadcastRaidState(new ArrayList<>(coopRaid.fullLog.subList(
-            Math.max(0, coopRaid.fullLog.size() - 1), coopRaid.fullLog.size())));
-        refreshPanel();
-    }
-
-    public synchronized void coopRaidMove(int moveIdx)
-    {
-        if (coopRaid == null || !coopRaid.started || coopRaid.finished)
-        {
-            return;
-        }
-        com.osrsgo.battle.CoopRaid.Participant mine = coopRaid.me();
-        if (mine == null || !mine.alive || mine.pendingMove != null)
-        {
-            return;
-        }
-        mine.pendingMove = moveIdx;
-        if (coopRaid.host)
-        {
-            maybeResolveCoopTurn();
-        }
-        else
-        {
-            partyService.send(new com.osrsgo.party.RaidMoveMsg(coopRaid.raidKey, coopRaid.turn, moveIdx));
-        }
-        refreshPanel();
-    }
-
-    public synchronized void leaveCoopRaid()
-    {
-        coopRaid = null;
-        refreshPanel();
-    }
-
-    private void maybeResolveCoopTurn()
-    {
-        if (coopRaid == null || !coopRaid.host || !coopRaid.started || coopRaid.finished
-            || !coopRaid.allMovesIn())
-        {
-            return;
-        }
-        List<String> log = coopRaid.resolveTurn();
-        battleScene.clash();
-        broadcastRaidState(log);
-        if (coopRaid.finished)
-        {
-            settleCoopRaid();
-        }
-        refreshPanel();
-    }
-
-    private void broadcastRaidState(List<String> log)
-    {
-        com.osrsgo.battle.CoopRaid.State state = coopRaid.snapshot(log);
-        partyService.send(new com.osrsgo.party.RaidStateMsg(coopRaid.raidKey, gson.toJson(state)));
-    }
-
-    /** Rewards run locally on every participant when the raid ends. */
-    private void settleCoopRaid()
-    {
-        if (coopRaid == null)
-        {
-            return;
-        }
-        // Win or lose, a settled co-op raid burns this rotation's attempt
-        recordRaidAttempt(coopRaid.gymId);
-        if (!coopRaid.wonByUs)
-        {
-            return;
-        }
-        profile.stats.raidWins++;
-        profile.trainerXp += 300;
-        coopRaid.fullLog.add("Raid cleared! +300 trainer xp.");
-        // The mon you brought levels from the boss it helped fell
-        if (coopRaidMonRef != null && profile.mons.contains(coopRaidMonRef))
-        {
-            int monXp = (int) ((30 + 5 * coopRaid.bossLevel) * monXpMultiplier());
-            int gained = coopRaidMonRef.gainXp(monXp);
-            coopRaid.fullLog.add(coopRaidMonRef.name() + " earned " + monXp + " xp from the raid!");
-            if (gained > 0)
-            {
-                chatMessage("Gielinor Safari: " + coopRaidMonRef.name() + " grew to level "
-                    + coopRaidMonRef.level + "!");
-            }
-        }
-        rollRaidCatch(coopRaid.bossSpeciesId, coopRaid.fullLog);
-        saveSoon();
-    }
-
     // Raid catch scene: after a raid win the throws play out as real ball
     // animations at the boss's tile, one sequence per throw
     private static final String RAID_CATCH_KEY = "raid-catch";
@@ -2231,7 +1975,7 @@ public class OsrsGoPlugin extends Plugin
         raidThrowNum = 0;
         raidSceneMySpecies = session != null && !session.myTeam.isEmpty()
             ? session.myMon().speciesId
-            : (coopRaid != null && coopRaid.me() != null ? coopRaid.me().mon.speciesId : speciesId);
+            : speciesId;
         raidCatchTile = battleScene.isActive() && battleScene.getTheirsWp() != null
             ? battleScene.getTheirsWp()
             : (playerLocation != null
@@ -2340,103 +2084,6 @@ public class OsrsGoPlugin extends Plugin
                 raidCatchLog = null;
                 saveSoon();
             }
-        }
-        refreshPanel();
-    }
-
-    @Subscribe
-    public synchronized void onRaidStartMsg(com.osrsgo.party.RaidStartMsg msg)
-    {
-        if (isEcho(msg.getMemberId()) || coopRaid != null || session != null)
-        {
-            return;
-        }
-        pendingRaidKey = msg.getRaidKey();
-        pendingRaidGymId = msg.getGymId();
-        pendingRaidHost = msg.getHostName();
-        pendingRaidBossId = msg.getBossSpeciesId();
-        pendingRaidBossLevel = msg.getBossLevel();
-        pendingRaidHostMemberId = msg.getMemberId();
-        notifier.notify("Gielinor Safari: " + msg.getHostName() + " is starting a raid on "
-            + com.osrsgo.data.SpeciesData.byId(msg.getBossSpeciesId()).getName() + "!");
-        refreshPanel();
-    }
-
-    @Subscribe
-    public synchronized void onRaidJoinMsg(com.osrsgo.party.RaidJoinMsg msg)
-    {
-        if (isEcho(msg.getMemberId()) || coopRaid == null || !coopRaid.host
-            || coopRaid.started || !coopRaid.raidKey.equals(msg.getRaidKey()))
-        {
-            return;
-        }
-        try
-        {
-            MonSpec spec = gson.fromJson(msg.getMonSpecJson(), MonSpec.class);
-            if (spec == null || !com.osrsgo.battle.SpecValidator.valid(spec))
-            {
-                log.warn("Rejected raid join with invalid mon from {}", msg.getJoinerName());
-                chatAlways("Gielinor Safari: " + msg.getJoinerName()
-                    + " tried to join the raid but their mon failed validation.");
-                return;
-            }
-            coopRaid.participants.put(msg.getMemberId(), new com.osrsgo.battle.CoopRaid.Participant(
-                msg.getMemberId(), msg.getJoinerName(), BattleMon.fromSpec(spec)));
-            coopRaid.fullLog.add(msg.getJoinerName() + " joins the raid!");
-            chatMessage("Gielinor Safari: " + msg.getJoinerName() + " joined the raid ("
-                + coopRaid.participants.size() + " in)!");
-            // Pre-start roster sync so joiners see who else is in (turn 0 = lobby)
-            com.osrsgo.battle.CoopRaid.State roster = coopRaid.snapshot(new ArrayList<>());
-            roster.turn = 0;
-            partyService.send(new com.osrsgo.party.RaidStateMsg(coopRaid.raidKey, gson.toJson(roster)));
-        }
-        catch (Exception e)
-        {
-            log.warn("Bad raid join", e);
-        }
-        refreshPanel();
-    }
-
-    @Subscribe
-    public synchronized void onRaidMoveMsg(com.osrsgo.party.RaidMoveMsg msg)
-    {
-        if (isEcho(msg.getMemberId()) || coopRaid == null || !coopRaid.host || !coopRaid.started
-            || coopRaid.finished || !coopRaid.raidKey.equals(msg.getRaidKey())
-            || msg.getTurn() != coopRaid.turn)
-        {
-            return;
-        }
-        com.osrsgo.battle.CoopRaid.Participant p = coopRaid.participants.get(msg.getMemberId());
-        if (p != null && p.alive)
-        {
-            p.pendingMove = msg.getMoveIndex();
-        }
-        maybeResolveCoopTurn();
-        refreshPanel();
-    }
-
-    @Subscribe
-    public synchronized void onRaidStateMsg(com.osrsgo.party.RaidStateMsg msg)
-    {
-        if (isEcho(msg.getMemberId()) || coopRaid == null || coopRaid.host
-            || !coopRaid.raidKey.equals(msg.getRaidKey()))
-        {
-            return;
-        }
-        try
-        {
-            com.osrsgo.battle.CoopRaid.State state = gson.fromJson(msg.getStateJson(),
-                com.osrsgo.battle.CoopRaid.State.class);
-            coopRaid.applySnapshot(state);
-            battleScene.clash();
-            if (coopRaid.finished)
-            {
-                settleCoopRaid();
-            }
-        }
-        catch (Exception e)
-        {
-            log.warn("Bad raid state", e);
         }
         refreshPanel();
     }
@@ -2956,7 +2603,7 @@ public class OsrsGoPlugin extends Plugin
 
     private void autoHealAtBank()
     {
-        if (profile.trainerLevel() < AUTO_HEAL_LEVEL || session != null || coopRaid != null || !isNearBank())
+        if (profile.trainerLevel() < AUTO_HEAL_LEVEL || session != null || !isNearBank())
         {
             return;
         }
@@ -2984,7 +2631,7 @@ public class OsrsGoPlugin extends Plugin
 
     public synchronized String healTeam()
     {
-        if (session != null || coopRaid != null)
+        if (session != null)
         {
             return "No healing mid-battle! Finish the fight first.";
         }
@@ -3625,10 +3272,6 @@ public class OsrsGoPlugin extends Plugin
         {
             session = null;
             battleTeamRefs = Collections.emptyList();
-        }
-        if (coopRaid != null && coopRaid.finished)
-        {
-            coopRaid = null;
         }
     }
 
@@ -4379,11 +4022,12 @@ public class OsrsGoPlugin extends Plugin
         saveSoon();
         chatMessage("Gielinor Safari: you crushed " + holderRsn + "'s defenders, but "
             + gym.leader + " stopped you. " + gym.name + " now stands unclaimed!");
+        // Without this the holder's client keeps the gym and the two of you
+        // disagree about it permanently
         broadcastGymBreak(gym.id);
         refreshPanel();
     }
 
-    /** Party broadcast of a broken hold, so the former holder's client releases it too. */
     private void broadcastGymBreak(String gymId)
     {
         if (!partyService.isInParty())
@@ -4391,6 +4035,17 @@ public class OsrsGoPlugin extends Plugin
             return;
         }
         partyService.send(new com.osrsgo.party.GymBreakMsg(gymId));
+    }
+
+    private void broadcastGymClaim(String gymId)
+    {
+        GymHolder holder = profile.gyms.get(gymId);
+        if (holder == null || !partyService.isInParty())
+        {
+            return;
+        }
+        partyService.send(new com.osrsgo.party.GymClaimMsg(gymId, holder.holderRsn,
+            gson.toJson(holder.holderTeam), holder.holderFaction));
     }
 
     private void claimGymAfterWin(GymData.Gym gym)
@@ -4416,20 +4071,6 @@ public class OsrsGoPlugin extends Plugin
         refreshPanel();
     }
 
-    /** Party broadcast of a claim. */
-    private void broadcastGymClaim(String gymId)
-    {
-        GymHolder holder = profile.gyms.get(gymId);
-        if (holder == null || !partyService.isInParty())
-        {
-            return;
-        }
-        partyService.send(new com.osrsgo.party.GymClaimMsg(gymId, holder.holderRsn,
-            gson.toJson(holder.holderTeam), holder.holderFaction));
-    }
-
-    // ------------------------------------------------------------------ party message handlers
-
     @Subscribe
     public synchronized void onGymClaimMsg(com.osrsgo.party.GymClaimMsg msg)
     {
@@ -4438,14 +4079,12 @@ public class OsrsGoPlugin extends Plugin
         {
             return;
         }
-        // Bind the holder name to whoever actually sent this: otherwise any
-        // party member can claim (or hand away) any gym under any name, and
-        // gymsHeldNow() feeds tribute, the catch bonus and the monarch bonus,
-        // so a spoofed claim is as harmful as a real theft
+        // Bind the holder name to whoever actually sent this, or any party
+        // member can claim (or hand away) any gym under any name, and
+        // gymsHeldNow() feeds tribute, the catch bonus and the monarch bonus.
         // Both sides go through toJagexName first: an RSN carries a
-        // non-breaking space where a space is displayed, and party display
-        // names are already normalised, so a raw comparison silently rejects
-        // every player whose name has a space in it
+        // non-breaking space where a space is displayed, so a raw comparison
+        // silently rejects every player whose name has a space in it.
         net.runelite.client.party.PartyMember sender = partyService.getMemberById(msg.getMemberId());
         if (sender == null || !jagexName(msg.getHolderRsn()).equalsIgnoreCase(jagexName(sender.getDisplayName())))
         {
@@ -4549,6 +4188,10 @@ public class OsrsGoPlugin extends Plugin
         }
         return false;
     }
+
+    // ------------------------------------------------------------------ party message handlers
+
+
 
     @Subscribe
     public synchronized void onBattleChallengeMsg(BattleChallengeMsg msg)
@@ -4677,12 +4320,6 @@ public class OsrsGoPlugin extends Plugin
             }
             outgoingBattleId = null;
             clearPendingChallenge();
-            if (coopRaid != null && !coopRaid.finished)
-            {
-                coopRaid.finished = true;
-                coopRaid.fullLog.add("Party disbanded; the raid collapses.");
-            }
-            pendingRaidKey = null;
             trade = null;
             clearIncomingTrade();
             refreshPanel();
