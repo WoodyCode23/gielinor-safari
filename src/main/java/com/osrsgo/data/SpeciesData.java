@@ -208,7 +208,7 @@ public final class SpeciesData
         add(218, "Zebak", MonType.RANGED, Rarity.LEGENDARY, 96, 94, 82, 45);
         add(219, "Dharok the Wretched", MonType.MELEE, Rarity.LEGENDARY, 94, 99, 80, 30);
 
-        // Batch 4 (2026-08-10): first field-journal harvest (::godex), ids live-verified
+        // Batch 4 (2026-08-10): first field-journal harvest, ids live-verified
         add(300, "Hero", MonType.MELEE, Rarity.RARE, 42, 39, 31, 59);
         add(301, "Mounted terrorbird gnome", MonType.MELEE, Rarity.UNCOMMON, 39, 36, 28, 39);
         add(302, "Knight of Ardougne", MonType.MELEE, Rarity.UNCOMMON, 38, 35, 28, 36);

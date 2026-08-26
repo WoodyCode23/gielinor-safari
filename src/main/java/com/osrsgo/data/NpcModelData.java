@@ -190,7 +190,7 @@ public final class NpcModelData
         map(217, NpcID.THE_HUEYCOATL);
         map(218, NpcID.ZEBAK);
         map(219, NpcID.DHAROK_THE_WRETCHED);
-        // Batch 4: raw ids harvested live via ::godex (verified renderable in-world)
+        // Batch 4: raw ids harvested live in-game (verified renderable in-world)
         map(300, 11934);  // Hero
         map(301, 5971);   // Mounted terrorbird gnome
         map(302, 3297);   // Knight of Ardougne

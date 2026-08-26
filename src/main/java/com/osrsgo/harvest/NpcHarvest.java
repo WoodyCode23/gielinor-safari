@@ -15,7 +15,7 @@ import net.runelite.client.RuneLite;
 /**
  * The field journal: every named, renderable NPC encountered gets recorded
  * (name, a verified id, combat level), building toward a complete GielDex.
- * ::godex exports the uncatalogued ones as ready-to-trim species scaffolding.
+ * Uncatalogued sightings feed the species list as new batches are added.
  */
 @Slf4j
 @Singleton

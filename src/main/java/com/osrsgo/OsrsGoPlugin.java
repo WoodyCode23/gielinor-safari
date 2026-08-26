@@ -430,16 +430,11 @@ public class OsrsGoPlugin extends Plugin
     // One kill can surface as both ActorDeath and NpcLootReceived; only the
     // first throw within the window counts
     private final java.util.Map<Integer, Long> lastBossThrowMs = new java.util.HashMap<>();
-    // Last kill evaluations, dumped by ::goboss so "why no throw?" is answerable
-    private final java.util.ArrayDeque<String> bossKillLog = new java.util.ArrayDeque<>();
 
+    /** Why a kill did or did not earn a throw. Log only, never shown in game. */
     private void bossLog(String name, String verdict)
     {
-        if (bossKillLog.size() >= 10)
-        {
-            bossKillLog.removeFirst();
-        }
-        bossKillLog.addLast(name + ": " + verdict);
+        log.debug("boss throw | {}: {}", name, verdict);
     }
 
     /**
@@ -552,7 +547,7 @@ public class OsrsGoPlugin extends Plugin
         {
             bossLog(npc.getName(), knownName
                 ? "no throw (in the GielDex but not Epic/Legendary)"
-                : "no throw (not in the GielDex; needs cataloguing via ::godex)");
+                : "no throw (species not in the GielDex)");
             return;
         }
         net.runelite.api.coords.LocalPoint local = npc.getLocalLocation();
@@ -3312,73 +3307,8 @@ public class OsrsGoPlugin extends Plugin
     }
 
     /**
-     * ::gomodels sweeps every species (normal + shiny) through the model
-     * builder and reports the failures. Chat gets the summary; the full
-     * report lands in .runelite/osrsgo-model-report.txt.
-     */
-    /**
-     * ::godex exports every harvested-but-uncatalogued NPC as ready-to-trim
-     * species scaffolding (stats derived from combat level, ids verified
-     * live). Ryan trims the list; the survivors get pasted into SpeciesData
-     * and NpcModelData.
-     */
-    private void exportNpcDex()
-    {
-        java.util.List<com.osrsgo.harvest.NpcHarvest.Seen> all = npcHarvest.all();
-        all.sort((a, b) -> Integer.compare(b.combat, a.combat));
-        StringBuilder scaffold = new StringBuilder();
-        StringBuilder zeroCombat = new StringBuilder();
-        int nextId = 300;
-        for (com.osrsgo.model.Species sp : com.osrsgo.data.SpeciesData.all())
-        {
-            nextId = Math.max(nextId, sp.getId() + 1);
-        }
-        int newCount = 0;
-        for (com.osrsgo.harvest.NpcHarvest.Seen s : all)
-        {
-            if (SPECIES_BY_NAME.containsKey(s.name.toLowerCase()))
-            {
-                continue;
-            }
-            if (s.combat <= 0)
-            {
-                zeroCombat.append("// combat 0 (probably trim): ").append(s.name)
-                    .append("  npcId=").append(s.npcId).append('\n');
-                continue;
-            }
-            int c = Math.min(s.combat, 800);
-            int base = 15 + (int) (85 * Math.sqrt(c / 800.0));
-            String rarity = s.combat < 20 ? "COMMON" : s.combat < 50 ? "UNCOMMON"
-                : s.combat < 90 ? "RARE" : s.combat < 180 ? "EPIC" : "LEGENDARY";
-            int id = nextId + newCount;
-            scaffold.append(String.format(
-                "add(%d, \"%s\", MonType.MELEE, Rarity.%s, %d, %d, %d, %d);  map(%d, %d);  // combat %d%n",
-                id, s.name.replace("\"", ""), rarity,
-                base + 3, base, (int) (base * 0.8), 25 + (s.combat % 35),
-                id, s.npcId, s.combat));
-            newCount++;
-        }
-        try
-        {
-            java.io.File report = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
-                "osrsgo-npcdex-report.txt");
-            java.nio.file.Files.write(report.toPath(),
-                ("// Harvested " + npcHarvest.size() + " NPCs; " + newCount
-                    + " new candidates below (trim freely, MonType/stats are guesses)\n"
-                    + scaffold + "\n" + zeroCombat)
-                    .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-            chatAlways("Gielinor Safari: field journal has " + npcHarvest.size() + " NPCs ("
-                + newCount + " not yet in the GielDex). Scaffold written to " + report.getAbsolutePath());
-        }
-        catch (Exception e)
-        {
-            log.warn("could not write npcdex report", e);
-        }
-    }
-
-    /**
      * Merges another profile into the live one: mons append, sets union,
-     * currencies and xp take the max. Used by ::gorestore and ::goimport.
+     * currencies and xp take the max. Used by the backup restore command.
      */
     private synchronized int mergeProfile(PlayerProfile other)
     {
@@ -3462,261 +3392,22 @@ public class OsrsGoPlugin extends Plugin
     }
 
     /**
-     * What the placement check sees at one tile. Reports the player's plane
-     * and plane 0 separately because the walkability check reads plane 0
-     * unconditionally, and reports whether a Tile exists at all, because a
-     * tile in the void has no collision flags to be blocked by.
+     * Restores the automatic backup, which only ever grows: it is rewritten
+     * only when the live profile has at least as many mons, so a wiped or
+     * shrunken profile can never overwrite it. Merges rather than replaces,
+     * so nothing caught since the backup is lost.
      */
-    private String tileReport(WorldPoint wp)
-    {
-        if (wp == null)
-        {
-            return "(no location)";
-        }
-        int sx = wp.getX() - client.getBaseX();
-        int sy = wp.getY() - client.getBaseY();
-        if (sx < 0 || sx >= 104 || sy < 0 || sy >= 104)
-        {
-            return "off-scene";
-        }
-        int plane = client.getPlane();
-        net.runelite.api.CollisionData[] maps = client.getCollisionMaps();
-        String here = "n/a";
-        String ground = "n/a";
-        boolean blocked = false;
-        if (maps != null)
-        {
-            if (plane >= 0 && plane < maps.length && maps[plane] != null)
-            {
-                int f = maps[plane].getFlags()[sx][sy];
-                here = "0x" + Integer.toHexString(f);
-                blocked = !com.osrsgo.spawn.Coords.walkableFlags(f);
-            }
-            if (maps[0] != null)
-            {
-                ground = "0x" + Integer.toHexString(maps[0].getFlags()[sx][sy]);
-            }
-        }
-        boolean tileExists = false;
-        try
-        {
-            net.runelite.api.Scene scene = client.getScene();
-            tileExists = scene != null && scene.getTiles()[plane][sx][sy] != null;
-        }
-        catch (Exception e)
-        {
-            // Diagnostic must never throw
-        }
-        return "flags(p" + plane + ")=" + here + " flags(p0)=" + ground
-            + " blockedByUs=" + blocked + " tileExists=" + tileExists;
-    }
-
     @Subscribe
     public void onCommandExecuted(net.runelite.api.events.CommandExecuted event)
     {
-        if ("gorestore".equalsIgnoreCase(event.getCommand()))
-        {
-            int added = mergeProfile(profileStore.loadBackup());
-            chatAlways(added < 0 ? "Gielinor Safari: no backup profile exists yet."
-                : "Gielinor Safari: backup merged in (" + added + " mons added).");
-            return;
-        }
-        if ("goimport".equalsIgnoreCase(event.getCommand()))
-        {
-            try
-            {
-                java.io.File file = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
-                    "osrsgo-restore.json");
-                if (!file.isFile())
-                {
-                    chatAlways("Gielinor Safari: no osrsgo-restore.json found in .runelite.");
-                    return;
-                }
-                PlayerProfile other = gson.fromJson(new String(
-                    java.nio.file.Files.readAllBytes(file.toPath()),
-                    java.nio.charset.StandardCharsets.UTF_8), PlayerProfile.class);
-                int added = mergeProfile(other);
-                chatAlways("Gielinor Safari: restore imported (" + added + " mons added). Welcome back.");
-            }
-            catch (Exception e)
-            {
-                log.warn("goimport failed", e);
-                chatAlways("Gielinor Safari: import failed: " + e.getMessage());
-            }
-            return;
-        }
-        if ("goboss".equalsIgnoreCase(event.getCommand()))
-        {
-            if (bossKillLog.isEmpty())
-            {
-                chatAlways("Gielinor Safari: no boss kills evaluated yet this session.");
-            }
-            else
-            {
-                chatAlways("Gielinor Safari: last " + bossKillLog.size() + " kill evaluations:");
-                for (String line : bossKillLog)
-                {
-                    chatAlways("  " + line);
-                }
-            }
-            return;
-        }
-        if ("gobattle".equalsIgnoreCase(event.getCommand()))
-        {
-            if (battleEndLog.isEmpty())
-            {
-                chatAlways("Gielinor Safari: no battles finished yet this session.");
-            }
-            else
-            {
-                chatAlways("Gielinor Safari: last " + battleEndLog.size() + " battle endings:");
-                for (String line : battleEndLog)
-                {
-                    chatAlways("  " + line);
-                }
-            }
-            return;
-        }
-        if ("gospawn".equalsIgnoreCase(event.getCommand()))
-        {
-            // Diagnostic only: dumps what the placement check actually sees for
-            // the player's tile and each nearby spawn, so a bad placement can
-            // be attributed to real data rather than guessed at
-            clientThread.invoke(() ->
-            {
-                StringBuilder out = new StringBuilder();
-                out.append("plane=").append(client.getPlane())
-                    .append(" base=").append(client.getBaseX()).append(',').append(client.getBaseY())
-                    .append(" instanced=").append(client.isInInstancedRegion())
-                    .append(" regions=");
-                int[] regions = client.getMapRegions();
-                if (regions != null)
-                {
-                    for (int r : regions)
-                    {
-                        out.append(r).append(' ');
-                    }
-                }
-                out.append('\n');
-                out.append("you  @").append(playerLocation != null ? playerLocation.getX() : -1)
-                    .append(',').append(playerLocation != null ? playerLocation.getY() : -1)
-                    .append("  ").append(tileReport(playerLocation)).append('\n');
-                for (WildSpawn s : nearbySpawns)
-                {
-                    out.append(String.format("%-22s", s.species().getName()))
-                        .append('@').append(s.location.getX()).append(',').append(s.location.getY())
-                        .append("  verified=").append(s.placementVerified)
-                        .append("  ").append(tileReport(s.location)).append('\n');
-                }
-                try
-                {
-                    java.io.File report = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
-                        "osrsgo-spawn-report.txt");
-                    java.nio.file.Files.write(report.toPath(),
-                        out.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                    chatAlways("Gielinor Safari: spawn report written to " + report.getAbsolutePath());
-                }
-                catch (Exception e)
-                {
-                    chatAlways("Gielinor Safari: could not write spawn report: " + e.getMessage());
-                }
-            });
-            return;
-        }
-        if ("gocandy".equalsIgnoreCase(event.getCommand()))
-        {
-            java.util.Collection<SpawnManager.Candy> all = spawnManager.allCandies();
-            chatAlways("Gielinor Safari: " + all.size() + " candy(ies) in loaded regions"
-                + (all.isEmpty() ? " (1-in-60 regions per rotation; keep moving!)" : ":"));
-            for (SpawnManager.Candy c : all)
-            {
-                chatAlways("  " + c.location.getX() + "," + c.location.getY()
-                    + (playerLocation != null ? " (" + playerLocation.distanceTo(c.location) + " tiles away)" : "")
-                    + (c.placementVerified ? "" : " [unverified tile]"));
-            }
-            return;
-        }
-        if ("gogym".equalsIgnoreCase(event.getCommand()))
-        {
-            chatAlways("Gielinor Safari: gym control "
-                + (config.gymControl() ? "ON" : "OFF") + ", rsn=" + myRsn
-                + ", held=" + gymsHeldNow()
-                + ", party others=" + getOtherPartyMembers().size()
-                + ", tribute x" + String.format("%.2f", tributeMultiplier()));
-            for (GymData.Gym g : GymData.all())
-            {
-                GymHolder h = getGymHolder(g.id);
-                String state;
-                if (h == null || h.holderRsn == null)
-                {
-                    state = "unclaimed";
-                }
-                else
-                {
-                    state = "held by " + h.holderRsn + (h.isExpired() ? " (EXPIRED)" : "");
-                }
-                chatAlways("  " + g.name + ": " + state
-                    + " | " + gymOwnership(g.id) + (inGymRange(g) ? " | in range" : ""));
-            }
-            return;
-        }
-        if ("godex".equalsIgnoreCase(event.getCommand()))
-        {
-            npcHarvest.saveIfDirty();
-            exportNpcDex();
-            return;
-        }
-        if (!"gomodels".equalsIgnoreCase(event.getCommand()))
+        if (!"gorestore".equalsIgnoreCase(event.getCommand()))
         {
             return;
         }
-        clientThread.invoke(() ->
-        {
-            List<String> failures = new ArrayList<>();
-            for (com.osrsgo.model.Species sp : com.osrsgo.data.SpeciesData.all())
-            {
-                String normal = spawnModels.diagnose(sp.getId(), false);
-                if (normal != null)
-                {
-                    failures.add(sp.getId() + " " + sp.getName() + ": " + normal);
-                }
-                String shiny = spawnModels.diagnose(sp.getId(), true);
-                if (shiny != null && (normal == null || !shiny.equals(normal)))
-                {
-                    failures.add(sp.getId() + " " + sp.getName() + " (SHINY): " + shiny);
-                }
-            }
-            int total = com.osrsgo.data.SpeciesData.all().size();
-            chatAlways("Gielinor Safari model sweep: " + (total - countDistinctFailedSpecies(failures))
-                + "/" + total + " species OK, " + failures.size() + " failure(s).");
-            try
-            {
-                java.io.File report = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
-                    "osrsgo-model-report.txt");
-                java.nio.file.Files.write(report.toPath(),
-                    (String.join(System.lineSeparator(), failures) + System.lineSeparator())
-                        .getBytes(java.nio.charset.StandardCharsets.UTF_8));
-                chatAlways("Gielinor Safari: full report in " + report.getAbsolutePath());
-            }
-            catch (Exception e)
-            {
-                log.warn("could not write model report", e);
-            }
-            for (int i = 0; i < Math.min(5, failures.size()); i++)
-            {
-                chatAlways("Gielinor Safari: " + failures.get(i));
-            }
-        });
-    }
-
-    private static int countDistinctFailedSpecies(List<String> failures)
-    {
-        java.util.Set<String> ids = new java.util.HashSet<>();
-        for (String f : failures)
-        {
-            ids.add(f.substring(0, f.indexOf(' ')));
-        }
-        return ids.size();
+        int added = mergeProfile(profileStore.loadBackup());
+        chatAlways(added < 0 ? "Gielinor Safari: no backup profile exists yet."
+            : "Gielinor Safari: backup merged in (" + added + " mon"
+                + (added == 1 ? "" : "s") + " added).");
     }
 
     // ------------------------------------------------------------------ gyms
@@ -3991,16 +3682,11 @@ public class OsrsGoPlugin extends Plugin
         refreshPanel();
     }
 
-    // Last battle endings + what each triggered, dumped by ::gobattle
-    private final java.util.ArrayDeque<String> battleEndLog = new java.util.ArrayDeque<>();
 
+    /** How a battle settled and what it triggered. Log only, never shown in game. */
     private void battleDiag(String line)
     {
-        if (battleEndLog.size() >= 10)
-        {
-            battleEndLog.removeFirst();
-        }
-        battleEndLog.addLast(line);
+        log.debug("battle end | {}", line);
     }
 
     private void finishBattle()
