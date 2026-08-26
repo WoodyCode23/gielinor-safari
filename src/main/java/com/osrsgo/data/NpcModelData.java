@@ -341,6 +341,126 @@ public final class NpcModelData
         map(442, 3281);   // Rusty
         map(443, 6087);   // Gnome woman
         map(444, 2910);   // Chinchompa
+        map(445, 7555);   // Great Olm (Left claw)
+        map(446, 7553);   // Great Olm (Right claw)
+        map(447, 8384);   // Nylocas Athanatos
+        map(448, 7407);   // Marble gargoyle
+        map(449, 7405);   // King kurask
+        map(450, 11283);   // Fumus
+        map(451, 11285);   // Cruor
+        map(452, 11284);   // Umbra
+        map(453, 11286);   // Glacies
+        map(454, 7406);   // Nuclear smoke devil
+        map(455, 8345);   // Nylocas Ischyros
+        map(456, 8346);   // Nylocas Toxobolos
+        map(457, 8347);   // Nylocas Hagios
+        map(458, 7402);   // Abhorrent spectre
+        map(459, 6593);   // Lava dragon
+        map(460, 15504);   // Magma strykewyrm
+        map(461, 15770);   // Blood-starved venator
+        map(462, 10397);   // Spiked Turoth
+        map(463, 14520);   // Ancient Custodian
+        map(464, 7679);   // TzHaar-Ket
+        map(465, 7278);   // Greater Nechryael
+        map(466, 7104);   // Keef
+        map(467, 12464);   // Mutated Terrorbird
+        map(468, 11293);   // Blood Reaver
+        map(469, 14180);   // Judge of Yama
+        map(470, 5275);   // Monkey Guard
+        map(471, 7396);   // Malevolent Mage
+        map(472, 11291);   // Spiritual ranger
+        map(473, 11290);   // Spiritual warrior
+        map(474, 5263);   // Padulah
+        map(475, 11176);   // Araxyte
+        map(476, 14704);   // Elder custodian stalker
+        map(477, 2172);   // TzHaar-Xil
+        map(478, 14179);   // Void Flare
+        map(479, 12490);   // Warped Tortoise
+        map(480, 14703);   // Mature custodian stalker
+        map(481, 13706);   // Emissary Ascended
+        map(482, 15500);   // Lava Strykewyrm
+        map(483, 1890);   // Honour guard
+        map(484, 8366);   // Nylocas Matomenos
+        map(485, 2209);   // Saradomin priest
+        map(486, 13799);   // Chilled jelly
+        map(487, 15202);   // Narwhal
+        map(488, 2240);   // Ork
+        map(489, 13788);   // Frost Nagua
+        map(490, 2160);   // TzHaar-Mej
+        map(491, 2213);   // Knight of Saradomin
+        map(492, 7394);   // Flaming pyrelord
+        map(493, 14858);   // Gryphon
+        map(494, 14702);   // Juvenile custodian stalker
+        map(495, 14195);   // Lieutenant
+        map(496, 15218);   // Stingray
+        map(497, 3959);   // Tormented Warrior
+        map(498, 3426);   // Dire Wolf
+        map(499, 5274);   // Monkey Archer
+        map(500, 11097);   // Head Guard
+        map(501, 4373);   // City guard
+        map(502, 4319);   // Skeleton Mage
+        map(503, 7955);   // Baby black dragon
+        map(504, 4381);   // Enclave guard
+        map(505, 5829);   // Ice troll male
+        map(506, 5830);   // Ice troll female
+        map(507, 4362);   // Ogre chieftain
+        map(508, 680);   // Giant skeleton
+        map(509, 13742);   // Emissary Chosen
+        map(510, 7684);   // TzHaar-Hur
+        map(511, 1874);   // Ice troll runt
+        map(512, 5350);   // Undead one
+        map(513, 2453);   // Animated Black Armour
+        map(514, 14031);   // Chasm Crawler
+        map(515, 12976);   // Jaguar
+        map(516, 3023);   // Poison spider
+        map(517, 232);   // Jungle Wolf
+        map(518, 4655);   // Bedabin Nomad Fighter
+        map(519, 8367);   // Blood spawn
+        map(520, 3694);   // Vampyre Juvinate
+        map(521, 2062);   // Oomlie bird
+        map(522, 3692);   // Vampyre Juvenile
+        map(523, 3020);   // Jungle spider
+        map(524, 866);   // Zogre
+        map(525, 4652);   // Ugthanki
+        map(526, 4096);   // Archer
+        map(527, 1276);   // Loar Shadow
+        map(528, 2908);   // Spined larupia
+        map(529, 1293);   // Afflicted
+        map(530, 14151);   // Ice elemental
+        map(531, 3517);   // Renegade Knight
+        map(532, 14150);   // Fire elemental
+        map(533, 301);   // Black Heather
+        map(534, 302);   // Donny the lad
+        map(535, 303);   // Speedy Keith
+        map(536, 3021);   // Deadly red spider
+        map(537, 13735);   // Emissary Acolyte
+        map(538, 3424);   // Grizzly bear cub
+        map(539, 12977);   // Jaguar cub
+        map(540, 4649);   // Desert Wolf
+        map(541, 7799);   // Ammonite Crab
+        map(542, 1409);   // Black Guard
+        map(543, 2538);   // H.A.M. Guard
+        map(544, 5816);   // Yak
+        map(545, 4643);   // Shantay Guard
+        map(546, 1027);   // Guard Bandit
+        map(547, 2645);   // Blood Blamish Snail
+        map(548, 15228);   // Tern
+        map(549, 2647);   // Bruise Blamish Snail
+        map(550, 7238);   // Forester
+        map(551, 4095);   // Eadburg
+        map(552, 3279);   // Cuffs
+        map(553, 3685);   // Broddi
+        map(554, 3280);   // Narf
+        map(555, 3902);   // Bunny
+        map(556, 3682);   // Thora
+        map(557, 3687);   // Ragnvald
+        map(558, 2911);   // Carnivorous chinchompa
+        map(559, 3681);   // Rannveig
+        map(560, 3683);   // Valgerd
+        map(561, 3677);   // Thorhild
+        map(562, 3674);   // Ragnar
+        map(563, 3675);   // Einar
+        map(564, 3676);   // Alrik
     }
 
     private static void map(int speciesId, int npcId)

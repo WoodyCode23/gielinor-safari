@@ -407,6 +407,41 @@ public class SimHarness
         }
         System.out.println("Restore: a replaced profile round trips, and a sparse backup normalises");
 
+        // The species table is grown by pasting a harvested ::godex report,
+        // which has produced a literally null-named entry and could just as
+        // easily produce a duplicate. Everything below is what a bad paste
+        // breaks, checked here rather than discovered in the GielDex.
+        java.util.Set<String> speciesNames = new java.util.HashSet<>();
+        java.util.Set<Integer> mappedNpcs = new java.util.HashSet<>();
+        int unmapped = 0;
+        for (com.osrsgo.model.Species sp : com.osrsgo.data.SpeciesData.all())
+        {
+            String nm = sp.getName();
+            if (nm == null || nm.trim().isEmpty() || "null".equals(nm))
+            {
+                throw new IllegalStateException("species " + sp.getId() + " has no usable name");
+            }
+            if (!speciesNames.add(nm))
+            {
+                throw new IllegalStateException("duplicate species name: " + nm);
+            }
+            if (sp.getType() == null || sp.getRarity() == null)
+            {
+                throw new IllegalStateException("species " + nm + " is missing a type or rarity");
+            }
+            int npcId = com.osrsgo.data.NpcModelData.npcIdFor(sp.getId());
+            if (npcId < 0)
+            {
+                unmapped++;
+            }
+            else if (!mappedNpcs.add(npcId))
+            {
+                throw new IllegalStateException("npc id " + npcId + " is mapped to two species (" + nm + ")");
+            }
+        }
+        System.out.println("Species table: " + speciesNames.size() + " named, "
+            + mappedNpcs.size() + " model-mapped, " + unmapped + " unmapped");
+
         System.out.println("SIM OK");
     }
 
