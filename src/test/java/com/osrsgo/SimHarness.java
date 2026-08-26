@@ -14,7 +14,7 @@ import java.util.List;
  */
 public class SimHarness
 {
-    public static void main(String[] args)
+    public static void main(String[] args) throws Exception
     {
         OwnedMon a = mon(42, 30);
         OwnedMon b = mon(45, 28);
@@ -441,6 +441,47 @@ public class SimHarness
         }
         System.out.println("Species table: " + speciesNames.size() + " named, "
             + mappedNpcs.size() + " model-mapped, " + unmapped + " unmapped");
+
+        // Nothing here instantiates the plugin, so a class that no longer
+        // loads as a RuneLite plugin would still compile and still pass every
+        // check above. This asserts the shape RuneLite requires, which is what
+        // deleting a large block of the class can quietly break.
+        Class<?> pc = Class.forName("com.osrsgo.OsrsGoPlugin");
+        if (!net.runelite.client.plugins.Plugin.class.isAssignableFrom(pc)
+            || pc.getAnnotation(net.runelite.client.plugins.PluginDescriptor.class) == null)
+        {
+            throw new IllegalStateException("OsrsGoPlugin is no longer a descriptor-annotated Plugin");
+        }
+        java.util.Set<String> handledEvents = new java.util.HashSet<>();
+        int provides = 0;
+        for (java.lang.reflect.Method m : pc.getDeclaredMethods())
+        {
+            if (m.getAnnotation(com.google.inject.Provides.class) != null)
+            {
+                provides++;
+            }
+            if (m.getAnnotation(net.runelite.client.eventbus.Subscribe.class) == null)
+            {
+                continue;
+            }
+            if (m.getParameterCount() != 1)
+            {
+                throw new IllegalStateException("@Subscribe " + m.getName() + " must take exactly one event");
+            }
+            // Two handlers for one event type make EventBus throw when the
+            // plugin registers, so the plugin never starts at all
+            if (!handledEvents.add(m.getParameterTypes()[0].getName()))
+            {
+                throw new IllegalStateException("two @Subscribe methods for "
+                    + m.getParameterTypes()[0].getSimpleName());
+            }
+        }
+        if (handledEvents.isEmpty() || provides == 0)
+        {
+            throw new IllegalStateException("plugin lost its event handlers or its config provider");
+        }
+        System.out.println("Plugin shape: descriptor, " + handledEvents.size()
+            + " unique-event handlers, config provider present");
 
         System.out.println("SIM OK");
     }
