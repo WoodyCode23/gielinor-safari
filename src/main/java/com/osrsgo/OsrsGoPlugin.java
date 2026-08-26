@@ -3307,8 +3307,9 @@ public class OsrsGoPlugin extends Plugin
     }
 
     /**
-     * Merges another profile into the live one: mons append, sets union,
-     * currencies and xp take the max. Used by the backup restore command.
+     * Merges another profile into the live one: mons top up to whatever the
+     * incoming profile holds that this one is missing, sets union, currencies
+     * and xp take the max. Used by the backup restore command.
      */
     private synchronized int mergeProfile(PlayerProfile other)
     {
@@ -3319,7 +3320,9 @@ public class OsrsGoPlugin extends Plugin
         int added = 0;
         if (other.mons != null)
         {
-            for (OwnedMon m : other.mons)
+            // Only the shortfall, never the whole backup: appending wholesale
+            // doubled a healthy collection each time the command was run.
+            for (OwnedMon m : com.osrsgo.storage.ProfileMerge.missingFrom(profile.mons, other.mons))
             {
                 profile.mons.add(m);
                 profile.seenSpecies.add(m.speciesId);
@@ -3395,7 +3398,8 @@ public class OsrsGoPlugin extends Plugin
      * Restores the automatic backup, which only ever grows: it is rewritten
      * only when the live profile has at least as many mons, so a wiped or
      * shrunken profile can never overwrite it. Merges rather than replaces,
-     * so nothing caught since the backup is lost.
+     * so nothing caught since the backup is lost, and tops up rather than
+     * appends, so running it on an intact profile changes nothing.
      */
     @Subscribe
     public void onCommandExecuted(net.runelite.api.events.CommandExecuted event)
@@ -3405,9 +3409,21 @@ public class OsrsGoPlugin extends Plugin
             return;
         }
         int added = mergeProfile(profileStore.loadBackup());
-        chatAlways(added < 0 ? "Gielinor Safari: no backup profile exists yet."
-            : "Gielinor Safari: backup merged in (" + added + " mon"
-                + (added == 1 ? "" : "s") + " added).");
+        String msg;
+        if (added < 0)
+        {
+            msg = "Gielinor Safari: no backup profile exists yet.";
+        }
+        else if (added == 0)
+        {
+            msg = "Gielinor Safari: nothing to restore, your collection already has everything in the backup.";
+        }
+        else
+        {
+            msg = "Gielinor Safari: backup merged in (" + added + " mon"
+                + (added == 1 ? "" : "s") + " restored).";
+        }
+        chatAlways(msg);
     }
 
     // ------------------------------------------------------------------ gyms

@@ -350,7 +350,77 @@ public class SimHarness
         }
         System.out.println("Collision: allowlist blocks unnamed bits, keeps edge walls standable");
 
+        // Restoring a backup must top the collection up, never append it
+        // wholesale: that doubled a healthy profile every time the command
+        // ran, which is the collection-duplication bug players actually hit.
+        OwnedMon bakA = caught(42, 1000L, 1, 2, 3, 4);
+        OwnedMon bakB = caught(45, 2000L, 5, 6, 7, 8);
+        OwnedMon bakC = caught(20, 3000L, 9, 10, 11, 12);
+        List<OwnedMon> backup = new ArrayList<>();
+        backup.add(bakA);
+        backup.add(bakB);
+        backup.add(bakC);
+        List<OwnedMon> intact = new ArrayList<>(backup);
+        if (!com.osrsgo.storage.ProfileMerge.missingFrom(intact, backup).isEmpty())
+        {
+            throw new IllegalStateException("restoring onto an intact profile must add nothing");
+        }
+        // A mon that levelled up, was healed and got a nickname since the
+        // backup is still the same mon; matching on those would re-add it
+        OwnedMon drifted = caught(42, 1000L, 1, 2, 3, 4);
+        drifted.level = 60;
+        drifted.xp = 400;
+        drifted.hp = 3;
+        drifted.nickname = "Ratty";
+        drifted.favorite = true;
+        List<OwnedMon> played = new ArrayList<>();
+        played.add(drifted);
+        played.add(bakB);
+        played.add(bakC);
+        if (!com.osrsgo.storage.ProfileMerge.missingFrom(played, backup).isEmpty())
+        {
+            throw new IllegalStateException("levelling, healing or renaming a mon must not re-restore it");
+        }
+        List<OwnedMon> partial = new ArrayList<>();
+        partial.add(bakB);
+        List<OwnedMon> toppedUp = com.osrsgo.storage.ProfileMerge.missingFrom(partial, backup);
+        if (toppedUp.size() != 2 || toppedUp.contains(bakB))
+        {
+            throw new IllegalStateException("a partly lost profile must regain exactly what it lost");
+        }
+        if (com.osrsgo.storage.ProfileMerge.missingFrom(new ArrayList<>(), backup).size() != 3)
+        {
+            throw new IllegalStateException("a wiped profile must regain the whole backup");
+        }
+        // Two real mons can share a birth certificate (eggs hatched in one
+        // tick, or profiles written before caughtAt existed, which load as 0),
+        // so this counts copies instead of testing set membership
+        List<OwnedMon> twins = new ArrayList<>();
+        twins.add(caught(42, 0L, 1, 2, 3, 4));
+        twins.add(caught(42, 0L, 1, 2, 3, 4));
+        List<OwnedMon> oneTwin = new ArrayList<>();
+        oneTwin.add(caught(42, 0L, 1, 2, 3, 4));
+        if (com.osrsgo.storage.ProfileMerge.missingFrom(oneTwin, twins).size() != 1)
+        {
+            throw new IllegalStateException("indistinguishable duplicates must restore one for one");
+        }
+        System.out.println("Restore: idempotent, tops up losses, keeps true duplicates");
+
         System.out.println("SIM OK");
+    }
+
+    /** A mon with a full birth certificate, for the restore checks. */
+    private static OwnedMon caught(int speciesId, long caughtAt, int hp, int atk, int def, int spd)
+    {
+        OwnedMon m = new OwnedMon();
+        m.speciesId = speciesId;
+        m.level = 5;
+        m.caughtAt = caughtAt;
+        m.ivHp = hp;
+        m.ivAtk = atk;
+        m.ivDef = def;
+        m.ivSpd = spd;
+        return m;
     }
 
     private static OwnedMon mon(int speciesId, int level)
