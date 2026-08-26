@@ -78,100 +78,7 @@ public class ProfileStore
                 if (profile != null)
                 {
                     lastKnownCounter = profile.saveCounter;
-                    if (profile.mons == null)
-                    {
-                        profile.mons = new java.util.ArrayList<>();
-                    }
-                    if (profile.teamIndices == null)
-                    {
-                        profile.teamIndices = new java.util.ArrayList<>();
-                    }
-                    if (profile.badges == null)
-                    {
-                        profile.badges = new java.util.LinkedHashSet<>();
-                    }
-                    if (profile.seenSpecies == null)
-                    {
-                        profile.seenSpecies = new java.util.LinkedHashSet<>();
-                    }
-                    if (profile.caughtSpecies == null)
-                    {
-                        profile.caughtSpecies = new java.util.LinkedHashSet<>();
-                    }
-                    // Backfill the registry for mons caught before it existed
-                    if (profile.mons != null)
-                    {
-                        for (com.osrsgo.model.OwnedMon m : profile.mons)
-                        {
-                            profile.seenSpecies.add(m.speciesId);
-                            profile.caughtSpecies.add(m.speciesId);
-                        }
-                    }
-                    if (profile.eggs == null)
-                    {
-                        profile.eggs = new java.util.ArrayList<>();
-                    }
-                    if (profile.stats == null)
-                    {
-                        profile.stats = new PlayerProfile.Stats();
-                    }
-                    if (profile.essence == null)
-                    {
-                        profile.essence = new java.util.HashMap<>();
-                    }
-                    if (profile.tierEssence == null)
-                    {
-                        profile.tierEssence = new java.util.HashMap<>();
-                    }
-                    if (profile.gyms == null)
-                    {
-                        profile.gyms = new java.util.HashMap<>();
-                    }
-                    if (profile.researchProgress == null || profile.researchProgress.length != 3)
-                    {
-                        profile.researchProgress = new int[3];
-                    }
-                    if (profile.researchDone == null || profile.researchDone.length != 3)
-                    {
-                        profile.researchDone = new boolean[3];
-                    }
-                    if (profile.earnedMedals == null)
-                    {
-                        profile.earnedMedals = new java.util.LinkedHashSet<>();
-                    }
-                    if (profile.weeklyProgress == null || profile.weeklyProgress.length != 2)
-                    {
-                        profile.weeklyProgress = new int[2];
-                    }
-                    if (profile.weeklyDone == null || profile.weeklyDone.length != 2)
-                    {
-                        profile.weeklyDone = new boolean[2];
-                    }
-                    if (profile.monthlyProgress == null || profile.monthlyProgress.length != 2)
-                    {
-                        profile.monthlyProgress = new int[2];
-                    }
-                    if (profile.monthlyDone == null || profile.monthlyDone.length != 2)
-                    {
-                        profile.monthlyDone = new boolean[2];
-                    }
-                    if (profile.savedTeams == null)
-                    {
-                        profile.savedTeams = new java.util.ArrayList<>();
-                    }
-                    while (profile.savedTeams.size() < 3)
-                    {
-                        profile.savedTeams.add(new java.util.ArrayList<>());
-                    }
-                    if (profile.activeTeamSlot < 0 || profile.activeTeamSlot > 2)
-                    {
-                        profile.activeTeamSlot = 0;
-                    }
-                    // Starter ball grant, and migration for pre-economy profiles
-                    if (profile.balls <= 0 && profile.tilesWalked == 0)
-                    {
-                        profile.balls = 15;
-                    }
+                    normalize(profile);
                     return profile;
                 }
             }
@@ -181,6 +88,111 @@ public class ProfileStore
             log.warn("Failed to load Gielinor Safari profile, starting fresh", e);
         }
         return new PlayerProfile();
+    }
+
+    /**
+     * Fills in every collection a profile is expected to have and clamps the
+     * fields that must sit in range. Profiles written by older versions are
+     * missing keys entirely, and Gson leaves those null. Both load paths run
+     * this: the restore command promotes a backup straight to the live
+     * profile, so an unnormalised backup would put those nulls into play.
+     */
+    public static void normalize(PlayerProfile profile)
+    {
+        if (profile.mons == null)
+        {
+            profile.mons = new java.util.ArrayList<>();
+        }
+        if (profile.teamIndices == null)
+        {
+            profile.teamIndices = new java.util.ArrayList<>();
+        }
+        if (profile.badges == null)
+        {
+            profile.badges = new java.util.LinkedHashSet<>();
+        }
+        if (profile.seenSpecies == null)
+        {
+            profile.seenSpecies = new java.util.LinkedHashSet<>();
+        }
+        if (profile.caughtSpecies == null)
+        {
+            profile.caughtSpecies = new java.util.LinkedHashSet<>();
+        }
+        // Backfill the registry for mons caught before it existed
+        if (profile.mons != null)
+        {
+            for (com.osrsgo.model.OwnedMon m : profile.mons)
+            {
+                profile.seenSpecies.add(m.speciesId);
+                profile.caughtSpecies.add(m.speciesId);
+            }
+        }
+        if (profile.eggs == null)
+        {
+            profile.eggs = new java.util.ArrayList<>();
+        }
+        if (profile.stats == null)
+        {
+            profile.stats = new PlayerProfile.Stats();
+        }
+        if (profile.essence == null)
+        {
+            profile.essence = new java.util.HashMap<>();
+        }
+        if (profile.tierEssence == null)
+        {
+            profile.tierEssence = new java.util.HashMap<>();
+        }
+        if (profile.gyms == null)
+        {
+            profile.gyms = new java.util.HashMap<>();
+        }
+        if (profile.researchProgress == null || profile.researchProgress.length != 3)
+        {
+            profile.researchProgress = new int[3];
+        }
+        if (profile.researchDone == null || profile.researchDone.length != 3)
+        {
+            profile.researchDone = new boolean[3];
+        }
+        if (profile.earnedMedals == null)
+        {
+            profile.earnedMedals = new java.util.LinkedHashSet<>();
+        }
+        if (profile.weeklyProgress == null || profile.weeklyProgress.length != 2)
+        {
+            profile.weeklyProgress = new int[2];
+        }
+        if (profile.weeklyDone == null || profile.weeklyDone.length != 2)
+        {
+            profile.weeklyDone = new boolean[2];
+        }
+        if (profile.monthlyProgress == null || profile.monthlyProgress.length != 2)
+        {
+            profile.monthlyProgress = new int[2];
+        }
+        if (profile.monthlyDone == null || profile.monthlyDone.length != 2)
+        {
+            profile.monthlyDone = new boolean[2];
+        }
+        if (profile.savedTeams == null)
+        {
+            profile.savedTeams = new java.util.ArrayList<>();
+        }
+        while (profile.savedTeams.size() < 3)
+        {
+            profile.savedTeams.add(new java.util.ArrayList<>());
+        }
+        if (profile.activeTeamSlot < 0 || profile.activeTeamSlot > 2)
+        {
+            profile.activeTeamSlot = 0;
+        }
+        // Starter ball grant, and migration for pre-economy profiles
+        if (profile.balls <= 0 && profile.tilesWalked == 0)
+        {
+            profile.balls = 15;
+        }
     }
 
     public synchronized void save(PlayerProfile profile)
@@ -246,6 +258,28 @@ public class ProfileStore
         }
     }
 
+    /**
+     * Writes the profile to osrsgo-profile-prerestore.json before a restore
+     * replaces it. A restore is destructive by design, so this file is the
+     * only route back if the backup turns out to be older or thinner than the
+     * player expected. It is deliberately not read by anything: recovery is a
+     * manual act, so a bad restore cannot be compounded by an automatic one.
+     */
+    public synchronized void snapshotBeforeRestore(PlayerProfile profile)
+    {
+        try
+        {
+            java.io.File file = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
+                "osrsgo-profile-prerestore.json");
+            java.nio.file.Files.write(file.toPath(),
+                gson.toJson(profile).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        }
+        catch (Exception e)
+        {
+            log.warn("pre-restore snapshot failed", e);
+        }
+    }
+
     /** The backup profile, or null when none exists. */
     public synchronized PlayerProfile loadBackup()
     {
@@ -254,7 +288,14 @@ public class ProfileStore
             String json = configManager.getConfiguration(GROUP, BACKUP_KEY);
             if (json != null && !json.isEmpty())
             {
-                return gson.fromJson(json, PlayerProfile.class);
+                PlayerProfile backup = gson.fromJson(json, PlayerProfile.class);
+                if (backup != null)
+                {
+                    // The restore command makes this the live profile outright,
+                    // so it has to come back as complete as a normal load
+                    normalize(backup);
+                    return backup;
+                }
             }
         }
         catch (Exception e)

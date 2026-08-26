@@ -3307,99 +3307,16 @@ public class OsrsGoPlugin extends Plugin
     }
 
     /**
-     * Merges another profile into the live one: mons top up to whatever the
-     * incoming profile holds that this one is missing, sets union, currencies
-     * and xp take the max. Used by the backup restore command.
-     */
-    private synchronized int mergeProfile(PlayerProfile other)
-    {
-        if (other == null)
-        {
-            return -1;
-        }
-        int added = 0;
-        if (other.mons != null)
-        {
-            // Only the shortfall, never the whole backup: appending wholesale
-            // doubled a healthy collection each time the command was run.
-            for (OwnedMon m : com.osrsgo.storage.ProfileMerge.missingFrom(profile.mons, other.mons))
-            {
-                profile.mons.add(m);
-                profile.seenSpecies.add(m.speciesId);
-                profile.caughtSpecies.add(m.speciesId);
-                added++;
-            }
-        }
-        if (other.badges != null)
-        {
-            profile.badges.addAll(other.badges);
-        }
-        if (other.seenSpecies != null)
-        {
-            profile.seenSpecies.addAll(other.seenSpecies);
-        }
-        if (other.caughtSpecies != null)
-        {
-            profile.caughtSpecies.addAll(other.caughtSpecies);
-        }
-        if (other.earnedMedals != null)
-        {
-            profile.earnedMedals.addAll(other.earnedMedals);
-        }
-        profile.trainerXp = Math.max(profile.trainerXp, other.trainerXp);
-        profile.balls = Math.max(profile.balls, other.balls);
-        profile.greatBalls = Math.max(profile.greatBalls, other.greatBalls);
-        profile.superBalls = Math.max(profile.superBalls, other.superBalls);
-        profile.ultraBalls = Math.max(profile.ultraBalls, other.ultraBalls);
-        profile.masterBalls = Math.max(profile.masterBalls, other.masterBalls);
-        profile.berries = Math.max(profile.berries, other.berries);
-        profile.rareCandies = Math.max(profile.rareCandies, other.rareCandies);
-        profile.shinyEssence = Math.max(profile.shinyEssence, other.shinyEssence);
-        profile.tilesWalked = Math.max(profile.tilesWalked, other.tilesWalked);
-        // Fold the incoming profile's essence (either format) into its own tier
-        // pools, then take the max per tier so re-imports can't inflate
-        other.migrateEssence();
-        profile.migrateEssence();
-        // Keep whichever side holds more gyms; Gson defaults must not decide this
-        if (other.gyms != null && !other.gyms.isEmpty())
-        {
-            boolean theirsBigger;
-            if (myRsn == null)
-            {
-                // No RSN yet (an import performed at the login screen): heldBy
-                // can't tell who owns what, so fall back to raw map size
-                // rather than silently dropping the incoming gyms
-                theirsBigger = other.gyms.size() > profile.gyms.size();
-            }
-            else
-            {
-                int mineHeld = com.osrsgo.gym.LocalGyms.heldBy(profile.gyms, myRsn);
-                int theirsHeld = com.osrsgo.gym.LocalGyms.heldBy(other.gyms, myRsn);
-                theirsBigger = theirsHeld > mineHeld;
-            }
-            if (theirsBigger)
-            {
-                profile.gyms = other.gyms;
-            }
-        }
-        if (other.tierEssence != null)
-        {
-            for (java.util.Map.Entry<String, Integer> e : other.tierEssence.entrySet())
-            {
-                profile.tierEssence.merge(e.getKey(), e.getValue(), Math::max);
-            }
-        }
-        saveSoon();
-        refreshPanel();
-        return added;
-    }
-
-    /**
-     * Restores the automatic backup, which only ever grows: it is rewritten
-     * only when the live profile has at least as many mons, so a wiped or
-     * shrunken profile can never overwrite it. Merges rather than replaces,
-     * so nothing caught since the backup is lost, and tops up rather than
-     * appends, so running it on an intact profile changes nothing.
+     * Replaces the live profile with the automatic backup wholesale.
+     *
+     * The backup only ever grows: it is rewritten only when the live profile
+     * has at least as many mons, so a wiped or shrunken profile can never
+     * destroy it. This REPLACES rather than merges, so anything the live
+     * profile holds that the backup does not is gone: mons caught since the
+     * last backup write, eggs part way to hatching, research streaks and
+     * lifetime stats all revert to the snapshot. The profile as it stood is
+     * written to osrsgo-profile-prerestore.json first, which is the only way
+     * back.
      */
     @Subscribe
     public void onCommandExecuted(net.runelite.api.events.CommandExecuted event)
@@ -3408,22 +3325,38 @@ public class OsrsGoPlugin extends Plugin
         {
             return;
         }
-        int added = mergeProfile(profileStore.loadBackup());
-        String msg;
-        if (added < 0)
+        // Swapping the profile out from under a battle or a catch would leave
+        // those holding mons that no longer belong to anyone, and their
+        // write-back would land on the discarded collection
+        if (session != null || activeCatch != null)
         {
-            msg = "Gielinor Safari: no backup profile exists yet.";
+            chatAlways("Gielinor Safari: finish your battle or catch before restoring.");
+            return;
         }
-        else if (added == 0)
+        PlayerProfile backup = profileStore.loadBackup();
+        if (backup == null)
         {
-            msg = "Gielinor Safari: nothing to restore, your collection already has everything in the backup.";
+            chatAlways("Gielinor Safari: no backup profile exists yet.");
+            return;
         }
-        else
+        int before;
+        int after;
+        synchronized (this)
         {
-            msg = "Gielinor Safari: backup merged in (" + added + " mon"
-                + (added == 1 ? "" : "s") + " restored).";
+            before = profile.mons.size();
+            profileStore.snapshotBeforeRestore(profile);
+            profile = backup;
+            after = profile.mons.size();
+            // Save immediately rather than through saveSoon: until this lands,
+            // the restored profile still carries the backup's old saveCounter,
+            // and the cross-client reload in onGameStateChanged would see the
+            // pre-restore copy on disk as newer and quietly undo the restore
+            profileStore.save(profile);
         }
-        chatAlways(msg);
+        refreshPanel();
+        chatAlways("Gielinor Safari: profile replaced with the backup (" + before
+            + " mon" + (before == 1 ? "" : "s") + " -> " + after
+            + "). The previous profile is saved in osrsgo-profile-prerestore.json.");
     }
 
     // ------------------------------------------------------------------ gyms

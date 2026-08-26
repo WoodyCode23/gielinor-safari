@@ -350,61 +350,62 @@ public class SimHarness
         }
         System.out.println("Collision: allowlist blocks unnamed bits, keeps edge walls standable");
 
-        // Restoring a backup must top the collection up, never append it
-        // wholesale: that doubled a healthy profile every time the command
-        // ran, which is the collection-duplication bug players actually hit.
-        OwnedMon bakA = caught(42, 1000L, 1, 2, 3, 4);
-        OwnedMon bakB = caught(45, 2000L, 5, 6, 7, 8);
-        OwnedMon bakC = caught(20, 3000L, 9, 10, 11, 12);
-        List<OwnedMon> backup = new ArrayList<>();
-        backup.add(bakA);
-        backup.add(bakB);
-        backup.add(bakC);
-        List<OwnedMon> intact = new ArrayList<>(backup);
-        if (!com.osrsgo.storage.ProfileMerge.missingFrom(intact, backup).isEmpty())
+        // A restore now REPLACES the profile, so any field that fails to
+        // survive a save and load is not merely stale afterwards, it is gone.
+        // Round trip a fully populated profile and check the parts a restore
+        // is expected to bring back with it.
+        com.osrsgo.storage.PlayerProfile full = new com.osrsgo.storage.PlayerProfile();
+        full.mons.add(caught(42, 1000L, 1, 2, 3, 4));
+        full.mons.add(caught(45, 2000L, 5, 6, 7, 8));
+        full.teamIndices.add(1);
+        full.badges.add("varrock");
+        full.caughtSpecies.add(42);
+        full.berries = 7;
+        full.rareCandies = 3;
+        full.trainerXp = 5000;
+        full.stats.catches = 61;
+        full.researchProgress[0] = 2;
+        com.osrsgo.storage.PlayerProfile back =
+            simGson.fromJson(simGson.toJson(full), com.osrsgo.storage.PlayerProfile.class);
+        if (back.mons.size() != 2 || back.mons.get(1).ivSpd != 8
+            || back.mons.get(0).caughtAt != 1000L)
         {
-            throw new IllegalStateException("restoring onto an intact profile must add nothing");
+            throw new IllegalStateException("a restore must bring the collection back intact");
         }
-        // A mon that levelled up, was healed and got a nickname since the
-        // backup is still the same mon; matching on those would re-add it
-        OwnedMon drifted = caught(42, 1000L, 1, 2, 3, 4);
-        drifted.level = 60;
-        drifted.xp = 400;
-        drifted.hp = 3;
-        drifted.nickname = "Ratty";
-        drifted.favorite = true;
-        List<OwnedMon> played = new ArrayList<>();
-        played.add(drifted);
-        played.add(bakB);
-        played.add(bakC);
-        if (!com.osrsgo.storage.ProfileMerge.missingFrom(played, backup).isEmpty())
+        if (back.teamIndices.size() != 1 || back.badges.size() != 1
+            || !back.caughtSpecies.contains(42))
         {
-            throw new IllegalStateException("levelling, healing or renaming a mon must not re-restore it");
+            throw new IllegalStateException("team, badges and dex must survive a restore");
         }
-        List<OwnedMon> partial = new ArrayList<>();
-        partial.add(bakB);
-        List<OwnedMon> toppedUp = com.osrsgo.storage.ProfileMerge.missingFrom(partial, backup);
-        if (toppedUp.size() != 2 || toppedUp.contains(bakB))
+        if (back.berries != 7 || back.rareCandies != 3 || back.trainerXp != 5000
+            || back.stats.catches != 61 || back.researchProgress[0] != 2)
         {
-            throw new IllegalStateException("a partly lost profile must regain exactly what it lost");
+            throw new IllegalStateException("currencies, stats and research must survive a restore");
         }
-        if (com.osrsgo.storage.ProfileMerge.missingFrom(new ArrayList<>(), backup).size() != 3)
+        // A backup written by an older version has whole keys missing, which
+        // Gson leaves null. Merging tolerated that; replacing does not, since
+        // those nulls become the live profile, so the backup load path has to
+        // normalise exactly as a normal load does.
+        com.osrsgo.storage.PlayerProfile sparse =
+            simGson.fromJson("{\"trainerXp\":100}", com.osrsgo.storage.PlayerProfile.class);
+        sparse.mons = null;
+        sparse.stats = null;
+        sparse.eggs = null;
+        sparse.savedTeams = null;
+        sparse.researchProgress = null;
+        sparse.activeTeamSlot = 47;
+        com.osrsgo.storage.ProfileStore.normalize(sparse);
+        if (sparse.mons == null || sparse.stats == null || sparse.eggs == null
+            || sparse.gyms == null || sparse.badges == null || sparse.essence == null)
         {
-            throw new IllegalStateException("a wiped profile must regain the whole backup");
+            throw new IllegalStateException("a restored sparse profile must have no null collections");
         }
-        // Two real mons can share a birth certificate (eggs hatched in one
-        // tick, or profiles written before caughtAt existed, which load as 0),
-        // so this counts copies instead of testing set membership
-        List<OwnedMon> twins = new ArrayList<>();
-        twins.add(caught(42, 0L, 1, 2, 3, 4));
-        twins.add(caught(42, 0L, 1, 2, 3, 4));
-        List<OwnedMon> oneTwin = new ArrayList<>();
-        oneTwin.add(caught(42, 0L, 1, 2, 3, 4));
-        if (com.osrsgo.storage.ProfileMerge.missingFrom(oneTwin, twins).size() != 1)
+        if (sparse.savedTeams.size() != 3 || sparse.researchProgress.length != 3
+            || sparse.activeTeamSlot != 0)
         {
-            throw new IllegalStateException("indistinguishable duplicates must restore one for one");
+            throw new IllegalStateException("a restored profile must have its sized fields rebuilt and clamped");
         }
-        System.out.println("Restore: idempotent, tops up losses, keeps true duplicates");
+        System.out.println("Restore: a replaced profile round trips, and a sparse backup normalises");
 
         System.out.println("SIM OK");
     }
