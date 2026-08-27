@@ -105,8 +105,8 @@ public class SimHarness
             throw new IllegalStateException("gainXp did not level up");
         }
 
-        // Gym state must survive a Gson round trip, or a profile-format change
-        // silently empties a player's empire (see the 2026-08-10 wipe)
+        // Gym state must survive a Gson round trip: a profile-format change
+        // that drops this field silently empties a player's gym holdings
         com.osrsgo.storage.PlayerProfile gp = new com.osrsgo.storage.PlayerProfile();
         com.osrsgo.gym.GymHolder gh = new com.osrsgo.gym.GymHolder();
         gh.gymId = "varrock";
@@ -125,8 +125,8 @@ public class SimHarness
         }
 
         // A profile written before this field existed has no gyms key at all.
-        // It must still load with a usable map: this is the guarantee the
-        // 2026-08-10 wipe was caused by violating.
+        // It must still load with a usable map, or every older profile loses
+        // its gyms the first time it is opened by a newer build.
         com.osrsgo.storage.PlayerProfile legacy =
             simGson.fromJson("{\"trainerXp\":100}", com.osrsgo.storage.PlayerProfile.class);
         if (legacy.gyms == null)
@@ -303,7 +303,7 @@ public class SimHarness
 
         // Shape, not value: these hold for any sane coefficient, but catch a
         // mistyped one. Pinning the constants themselves would fail the suite
-        // on the playtest tuning the spec explicitly anticipates.
+        // whenever these are retuned, which is expected during play testing.
         double m1 = com.osrsgo.data.RivalData.tributeMultiplierFor(1);
         double m2 = com.osrsgo.data.RivalData.tributeMultiplierFor(2);
         if (!(m1 > 1.0 && m2 > m1 && m2 < 2.0))
@@ -407,9 +407,9 @@ public class SimHarness
         }
         System.out.println("Restore: a replaced profile round trips, and a sparse backup normalises");
 
-        // The species table is grown by pasting a harvested ::godex report,
-        // which has produced a literally null-named entry and could just as
-        // easily produce a duplicate. Everything below is what a bad paste
+        // The species table is grown in bulk from generated reports, which
+        // have produced a literally null-named entry before and could just as
+        // easily produce a duplicate. Everything below is what a bad entry
         // breaks, checked here rather than discovered in the GielDex.
         java.util.Set<String> speciesNames = new java.util.HashSet<>();
         java.util.Set<Integer> mappedNpcs = new java.util.HashSet<>();

@@ -36,7 +36,7 @@ public class PlayerProfile
     // Essence pools by rarity tier (COMMON..LEGENDARY): any mon of a tier
     // feeds the pool, any same-tier evolve/level spends from it
     public java.util.Map<String, Integer> tierEssence = new java.util.HashMap<>();
-    // Gym control state, local since 2026-08-13. Keyed by gym id.
+    // Gym control state, held locally. Keyed by gym id.
     public java.util.Map<String, com.osrsgo.gym.GymHolder> gyms = new java.util.HashMap<>();
     public String faction;
     public int berries;

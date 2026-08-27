@@ -190,7 +190,7 @@ public final class NpcModelData
         map(217, NpcID.THE_HUEYCOATL);
         map(218, NpcID.ZEBAK);
         map(219, NpcID.DHAROK_THE_WRETCHED);
-        // Batch 4: raw ids harvested live in-game (verified renderable in-world)
+        // Raw ids, each verified to render in-world
         map(300, 11934);  // Hero
         map(301, 5971);   // Mounted terrorbird gnome
         map(302, 3297);   // Knight of Ardougne
@@ -213,7 +213,7 @@ public final class NpcModelData
         map(319, 15760);  // Ancient feral vyre
         map(320, 16223);  // Sanguidae
         map(321, 15743);  // Ur-maggot larvae
-        // Batch 6: boss-roster sweep. Ids from the pinned api's gameval NpcID
+        // Bosses. Ids taken from the pinned api gameval NpcID
         // class; the four newest (Brutus/Demonic Brutus/Mad Angel) are wiki ids
         map(322, 1672);   // Ahrim the Blighted
         map(323, 1675);   // Karil the Tainted
@@ -252,7 +252,7 @@ public final class NpcModelData
         map(356, 7706);   // TzKal-Zuk
         map(357, 12821);  // Sol Heredit
         map(358, 9035);   // Corrupted Hunllef
-        // Batch 7: field-journal harvest ids (verified renderable in-world)
+        // Verified to render in-world
         map(359, 15767);  // Venator
         map(360, 713);    // Ice wolf
         map(361, 699);    // Ice troll
@@ -280,7 +280,6 @@ public final class NpcModelData
         map(383, 2992);   // Undead cow
         map(384, 2001);   // Duckling
         map(385, 2993);   // Undead chicken
-        // Batch 8: field-journal harvest ids
         map(386, 15224);  // Albatross
         map(387, 2955);   // Saradomin wizard
         map(388, 15194);  // Bull shark
@@ -291,7 +290,6 @@ public final class NpcModelData
         map(393, 1556);   // Fire wizard
         map(394, 3114);   // Farmer
         map(395, 3971);   // Zombie rat
-        // Batch 9: field-journal harvest ids
         map(396, 6600);   // Runite Golem
         map(397, 7312);   // Double agent
         map(398, 7310);   // Brassican Mage

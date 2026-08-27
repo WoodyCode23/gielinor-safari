@@ -106,7 +106,8 @@ public final class SpeciesData
         add(95, "The Nightmare", MonType.MAGIC, Rarity.LEGENDARY, 98, 92, 86, 30);
         add(96, "Chaos Elemental", MonType.MAGIC, Rarity.LEGENDARY, 86, 90, 72, 65);
 
-        // Expansion batch (2026-08-08): 54 more species
+        // Ids are append-only: saved collections reference them, so never
+        // renumber or reuse one, even for a species that is removed.
         add(100, "Duck", MonType.RANGED, Rarity.COMMON, 18, 16, 12, 45);
         add(101, "Bat", MonType.RANGED, Rarity.COMMON, 20, 22, 14, 55);
         add(102, "Giant Frog", MonType.MELEE, Rarity.COMMON, 34, 26, 24, 30);
@@ -161,7 +162,6 @@ public final class SpeciesData
         add(167, "Kraken", MonType.MAGIC, Rarity.LEGENDARY, 95, 96, 78, 20);
         add(168, "Thermonuclear Smoke Devil", MonType.MAGIC, Rarity.LEGENDARY, 92, 95, 76, 60);
 
-        // Expansion batch 3 (2026-08-09): 45 more species
         add(170, "Man", MonType.MELEE, Rarity.COMMON, 30, 25, 20, 30);
         add(171, "Woman", MonType.MELEE, Rarity.COMMON, 30, 25, 20, 32);
         add(172, "Rabbit", MonType.MELEE, Rarity.COMMON, 16, 14, 10, 58);
@@ -208,7 +208,7 @@ public final class SpeciesData
         add(218, "Zebak", MonType.RANGED, Rarity.LEGENDARY, 96, 94, 82, 45);
         add(219, "Dharok the Wretched", MonType.MELEE, Rarity.LEGENDARY, 94, 99, 80, 30);
 
-        // Batch 4 (2026-08-10): first field-journal harvest, ids live-verified
+        // Ids below were checked against live NPCs rather than the wiki alone
         add(300, "Hero", MonType.MELEE, Rarity.RARE, 42, 39, 31, 59);
         add(301, "Mounted terrorbird gnome", MonType.MELEE, Rarity.UNCOMMON, 39, 36, 28, 39);
         add(302, "Knight of Ardougne", MonType.MELEE, Rarity.UNCOMMON, 38, 35, 28, 36);
@@ -225,7 +225,7 @@ public final class SpeciesData
         add(313, "Rat", MonType.MELEE, Rarity.COMMON, 21, 18, 14, 26);
         add(314, "Spider", MonType.MELEE, Rarity.COMMON, 21, 18, 14, 26);
 
-        // Batch 5 (2026-08-10): Morytania field-journal harvest
+        // Morytania
         add(315, "Maggot King", MonType.MELEE, Rarity.LEGENDARY, 97, 95, 82, 40);
         add(316, "Evil Chicken", MonType.MAGIC, Rarity.EPIC, 72, 78, 55, 60);
         add(317, "Vyrewatch Sentinel", MonType.MELEE, Rarity.EPIC, 78, 76, 62, 50);
@@ -234,7 +234,7 @@ public final class SpeciesData
         add(320, "Sanguidae", MonType.MAGIC, Rarity.EPIC, 70, 74, 52, 45);
         add(321, "Ur-maggot larvae", MonType.MELEE, Rarity.RARE, 58, 56, 46, 40);
 
-        // Batch 6 (2026-08-10): full boss-roster sweep vs the wiki Boss page.
+        // Bosses, taken from the wiki boss list
         // Names must match in-game NPC names exactly for boss-kill throws.
         add(322, "Ahrim the Blighted", MonType.MAGIC, Rarity.EPIC, 82, 86, 66, 35);
         add(323, "Karil the Tainted", MonType.RANGED, Rarity.EPIC, 80, 85, 62, 55);
@@ -274,7 +274,7 @@ public final class SpeciesData
         add(357, "Sol Heredit", MonType.MELEE, Rarity.LEGENDARY, 99, 98, 90, 50);
         add(358, "Corrupted Hunllef", MonType.RANGED, Rarity.LEGENDARY, 95, 99, 84, 65);
 
-        // Batch 7 (2026-08-11): field-journal harvest (mountains, deserts, seas)
+        // Mountains, deserts and seas
         add(359, "Venator", MonType.MELEE, Rarity.LEGENDARY, 90, 88, 76, 50);
         add(360, "Ice wolf", MonType.MELEE, Rarity.EPIC, 72, 70, 58, 55);
         add(361, "Ice troll", MonType.MELEE, Rarity.EPIC, 74, 70, 62, 40);
@@ -303,7 +303,7 @@ public final class SpeciesData
         add(384, "Duckling", MonType.RANGED, Rarity.COMMON, 16, 14, 10, 44);
         add(385, "Undead chicken", MonType.RANGED, Rarity.COMMON, 18, 18, 12, 34);
 
-        // Batch 8 (2026-08-11): field-journal harvest (coasts and wizard country)
+        // Coasts and wizard country
         add(386, "Albatross", MonType.RANGED, Rarity.EPIC, 70, 68, 54, 58);
         add(387, "Saradomin wizard", MonType.MAGIC, Rarity.EPIC, 68, 72, 52, 50);
         add(388, "Bull shark", MonType.MELEE, Rarity.RARE, 52, 50, 40, 48);
@@ -315,8 +315,7 @@ public final class SpeciesData
         add(394, "Farmer", MonType.MELEE, Rarity.COMMON, 25, 22, 17, 32);
         add(395, "Zombie rat", MonType.MELEE, Rarity.COMMON, 23, 20, 16, 28);
 
-        // Batch 9 (2026-08-13): field-journal harvest (wilderness, Tirannwn,
-        // Kourend, seas). Types corrected from the export's MELEE guesses.
+        // Wilderness, Tirannwn, Kourend and the seas
         add(396, "Runite Golem", MonType.MELEE, Rarity.EPIC, 78, 74, 72, 30);
         add(397, "Double agent", MonType.MELEE, Rarity.EPIC, 70, 72, 56, 48);
         add(398, "Brassican Mage", MonType.MAGIC, Rarity.EPIC, 68, 76, 54, 50);

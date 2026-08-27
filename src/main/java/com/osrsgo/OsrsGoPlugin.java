@@ -324,7 +324,7 @@ public class OsrsGoPlugin extends Plugin
             // since we loaded. Refresh on login when it's safe, and adopt the
             // loaded profile ONLY when it's provably newer AND not a husk: a
             // torn read (save race) yields a fresh/empty profile and must
-            // never replace real data (the 2026-08-10 wipe).
+            // never replace real data.
             if (session == null && activeCatch == null && !profileDirty)
             {
                 PlayerProfile candidate = profileStore.load();
@@ -1018,7 +1018,7 @@ public class OsrsGoPlugin extends Plugin
         return myRsn;
     }
 
-    /** Gym control state, local since 2026-08-13. Empty when the feature is off. */
+    /** Gym control state, held locally. Empty when the feature is off. */
     public java.util.Map<String, GymHolder> gymHolders()
     {
         return config.gymControl() ? profile.gyms : java.util.Collections.emptyMap();
