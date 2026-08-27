@@ -15,6 +15,6 @@ Questions, bugs, or ideas? Join the community Discord: https://discord.gg/nphJz7
 ## Data and privacy
 
 - **No third-party servers.** Your collection, stats, progress and gym holdings all live in your local RuneLite config and are never sent anywhere. Gyms are contested by rival NPC trainers when you play alone.
-- **Party play** (battles, trades, and contesting each other's gyms) runs over RuneLite's own party system, so claims are exchanged only with the party you joined. Incoming claims are validated and bound to the sender before they are applied.
+- **Party play** (battles, trades, and contesting each other's gyms) runs over RuneLite's own party system. Multiplayer was originally designed around a server of my own, and moving it onto the party system is the better answer: there is no host holding your data, no account to create, and nothing of yours sitting on a machine you do not control. Claims are exchanged only with the party you joined, and each one is validated and bound to the sender before it is applied.
 - **NPC portraits** are fetched once from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki) and cached locally. Wiki images are used under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); RuneScape assets are the intellectual property of Jagex Ltd.
 - License: BSD 2-Clause (see LICENSE).
