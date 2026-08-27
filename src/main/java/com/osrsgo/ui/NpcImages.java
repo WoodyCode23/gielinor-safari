@@ -35,6 +35,10 @@ import okhttp3.Response;
 public class NpcImages
 {
     private static final String BASE = "https://oldschool.runescape.wiki/w/Special:FilePath/";
+
+    /** A plain wiki image name: letters, digits and light punctuation only. */
+    private static final java.util.regex.Pattern SAFE_FILE_NAME =
+        java.util.regex.Pattern.compile("[A-Za-z0-9 _()., '-]{1,120}\\.[Pp][Nn][Gg]");
     private static final int TARGET_HEIGHT = 28;
     private static final int MAX_WIDTH = 44;
 
@@ -314,6 +318,14 @@ public class NpcImages
         {
             String file = el.getAsJsonObject().get("name").getAsString();
             String lower = file.toLowerCase();
+            // The host is hardcoded above and only this file name comes back
+            // from the wiki, but a name is still remote input being pasted
+            // into a request, so anything that is not a plain image name is
+            // dropped rather than trusted.
+            if (!SAFE_FILE_NAME.matcher(file).matches())
+            {
+                continue;
+            }
             if (!lower.endsWith(".png") || lower.contains("historical") || lower.contains("unused")
                 || lower.contains("event") || lower.contains("halloween") || lower.contains("christmas")
                 || lower.contains("easter"))
