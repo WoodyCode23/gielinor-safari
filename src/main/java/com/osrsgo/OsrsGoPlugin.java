@@ -198,6 +198,10 @@ public class OsrsGoPlugin extends Plugin
         // that talked to a server, so no stale URL lingers in a user's config
         configManager.unsetConfiguration("osrsgo", "serverUrl");
 
+        // Older versions wrote six entries loose in the RuneLite folder;
+        // everything now lives in one directory of our own
+        com.osrsgo.storage.PluginFiles.migrateLegacyFiles();
+
         profile = profileStore.load();
         if (profileStore.wasTampered())
         {

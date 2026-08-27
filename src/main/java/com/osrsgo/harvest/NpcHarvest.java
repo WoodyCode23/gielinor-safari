@@ -10,7 +10,6 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.RuneLite;
 
 /**
  * The field journal: every named, renderable NPC encountered gets recorded
@@ -29,7 +28,7 @@ public class NpcHarvest
         public int count;
     }
 
-    private final File file = new File(RuneLite.RUNELITE_DIR, "osrsgo-npcdex.json");
+    private final File file = com.osrsgo.storage.PluginFiles.file("npcdex.json");
     private final Gson gson;
     private final Map<String, Seen> byName = new HashMap<>();
     private boolean dirty;

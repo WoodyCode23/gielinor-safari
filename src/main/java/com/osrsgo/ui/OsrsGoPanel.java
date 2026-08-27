@@ -3685,9 +3685,7 @@ public class OsrsGoPanel extends PluginPanel
         {
             java.awt.image.BufferedImage card = TrainerCard.render(
                 plugin.getProfile(), plugin.getMyRsn(), plugin.gymsHeldNow());
-            java.io.File dir = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR, "osrsgo-cards");
-            //noinspection ResultOfMethodCallIgnored
-            dir.mkdirs();
+            java.io.File dir = com.osrsgo.storage.PluginFiles.subDir("cards");
             java.io.File out = new java.io.File(dir,
                 "trainer-card-" + System.currentTimeMillis() + ".png");
             javax.imageio.ImageIO.write(card, "png", out);

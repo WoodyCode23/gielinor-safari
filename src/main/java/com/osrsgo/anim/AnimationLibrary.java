@@ -10,7 +10,6 @@ import java.util.Map;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.RuneLite;
 
 /**
  * Animations learned from watching real NPCs play. Idle and walk come
@@ -36,7 +35,7 @@ public class AnimationLibrary
         public Map<String, Entry> names = new HashMap<>();
     }
 
-    private final File file = new File(RuneLite.RUNELITE_DIR, "osrsgo-anims.json");
+    private final File file = com.osrsgo.storage.PluginFiles.file("anims.json");
     private final Gson gson;
     private final Map<Integer, Entry> bySpecies = new HashMap<>();
     private final Map<String, Entry> byName = new HashMap<>();

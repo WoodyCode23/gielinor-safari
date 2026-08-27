@@ -17,7 +17,6 @@ import javax.imageio.ImageIO;
 import javax.inject.Inject;
 import javax.inject.Singleton;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.client.RuneLite;
 import okhttp3.Call;
 import okhttp3.Callback;
 import okhttp3.OkHttpClient;
@@ -64,9 +63,7 @@ public class NpcImages
     public NpcImages(OkHttpClient httpClient)
     {
         this.httpClient = httpClient;
-        this.cacheDir = new File(RuneLite.RUNELITE_DIR, "osrsgo-images");
-        //noinspection ResultOfMethodCallIgnored
-        cacheDir.mkdirs();
+        this.cacheDir = com.osrsgo.storage.PluginFiles.subDir("images");
     }
 
     public void setOnUpdate(Runnable onUpdate)

@@ -246,8 +246,7 @@ public class ProfileStore
             if (monCount(json) >= monCount(backup))
             {
                 configManager.setConfiguration(GROUP, BACKUP_KEY, json);
-                java.io.File file = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
-                    "osrsgo-profile-backup.json");
+                java.io.File file = PluginFiles.file("profile-backup.json");
                 java.nio.file.Files.write(file.toPath(),
                     json.getBytes(java.nio.charset.StandardCharsets.UTF_8));
             }
@@ -269,8 +268,7 @@ public class ProfileStore
     {
         try
         {
-            java.io.File file = new java.io.File(net.runelite.client.RuneLite.RUNELITE_DIR,
-                "osrsgo-profile-prerestore.json");
+            java.io.File file = PluginFiles.file("profile-prerestore.json");
             java.nio.file.Files.write(file.toPath(),
                 gson.toJson(profile).getBytes(java.nio.charset.StandardCharsets.UTF_8));
         }
