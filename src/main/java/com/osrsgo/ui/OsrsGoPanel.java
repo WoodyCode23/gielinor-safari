@@ -238,6 +238,42 @@ public class OsrsGoPanel extends PluginPanel
         return combo;
     }
 
+    private volatile boolean spinnerFocused;
+
+    /**
+     * The same guard as {@link #guardPopup} but for a spinner's text editor,
+     * so a rebuild never lands on a half-typed number.
+     *
+     * Focus is tracked on the editor itself rather than by asking the client's
+     * shared focus manager who currently holds focus. Reaching for that global
+     * is not allowed in Plugin Hub plugins, and a listener on our own component
+     * is the narrower thing to do anyway: it only ever sees this panel.
+     */
+    private javax.swing.JSpinner guardSpinner(javax.swing.JSpinner spinner)
+    {
+        java.awt.Component editor = spinner.getEditor();
+        if (editor instanceof javax.swing.JSpinner.DefaultEditor)
+        {
+            editor = ((javax.swing.JSpinner.DefaultEditor) editor).getTextField();
+        }
+        editor.addFocusListener(new java.awt.event.FocusAdapter()
+        {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent e)
+            {
+                spinnerFocused = true;
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent e)
+            {
+                spinnerFocused = false;
+                refreshLater();
+            }
+        });
+        return spinner;
+    }
+
     /** Thread-safe refresh entry point; coalesces bursts into one EDT pass. */
     public void refreshLater()
     {
@@ -294,7 +330,7 @@ public class OsrsGoPanel extends PluginPanel
         long millis = plugin.millisUntilRotation();
         rotationLabel.setText("Next spawn wave in " + (millis / 60000) + "m " + ((millis / 1000) % 60) + "s");
 
-        if (popupOpen || spinnerFocused())
+        if (popupOpen || spinnerFocused)
         {
             // Leave open dropdowns and half-typed spinners alone
             return;
@@ -554,8 +590,8 @@ public class OsrsGoPanel extends PluginPanel
         JLabel lvlLabel = new JLabel("Min lvl");
         lvlLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
         lvlLabel.setFont(lvlLabel.getFont().deriveFont(11f));
-        javax.swing.JSpinner lvlSpin = new javax.swing.JSpinner(
-            new javax.swing.SpinnerNumberModel(nearbyMinLevel, 1, 99, 1));
+        javax.swing.JSpinner lvlSpin = guardSpinner(new javax.swing.JSpinner(
+            new javax.swing.SpinnerNumberModel(nearbyMinLevel, 1, 99, 1)));
         lvlSpin.setPreferredSize(new Dimension(52, 22));
         lvlSpin.setToolTipText("Hide spawns below this level");
         lvlSpin.addChangeListener(e ->
@@ -664,22 +700,6 @@ public class OsrsGoPanel extends PluginPanel
             lastFingerprint = "";
             refresh();
         }
-    }
-
-    /** Skip rebuilds while a spinner editor has focus so typing isn't interrupted. */
-    private boolean spinnerFocused()
-    {
-        java.awt.Component owner = java.awt.KeyboardFocusManager
-            .getCurrentKeyboardFocusManager().getFocusOwner();
-        while (owner != null)
-        {
-            if (owner instanceof javax.swing.JSpinner)
-            {
-                return true;
-            }
-            owner = owner.getParent();
-        }
-        return false;
     }
 
     private void addBallSelector(PlayerProfile profile)
