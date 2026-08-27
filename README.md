@@ -18,5 +18,3 @@ Questions, bugs, or ideas? Join the community Discord: https://discord.gg/nphJz7
 - **Party play** (battles, trades, and contesting each other's gyms) runs over RuneLite's own party system, so claims are exchanged only with the party you joined. Incoming claims are validated and bound to the sender before they are applied.
 - **NPC portraits** are fetched once from the [Old School RuneScape Wiki](https://oldschool.runescape.wiki) and cached locally. Wiki images are used under [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/); RuneScape assets are the intellectual property of Jagex Ltd.
 - License: BSD 2-Clause (see LICENSE).
-
-Design notes: `docs/design/original-design.md` and `docs/design/local-gym-control.md`.
