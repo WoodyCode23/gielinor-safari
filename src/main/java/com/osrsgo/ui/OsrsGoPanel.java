@@ -50,6 +50,12 @@ public class OsrsGoPanel extends PluginPanel
         {"Gielinor Ball", "Great Ball (+10%)", "Super Ball (+20%)", "Ultra Ball (+35%)", "Master Ball (100%, Rare+)"};
     private final JLabel toastLabel = new JLabel(" ");
     private final JTabbedPane tabs = new JTabbedPane();
+    private static final int TAB_NEARBY = 0;
+    private static final int TAB_DEX = 1;
+    private static final int TAB_GYMS = 2;
+    private static final int TAB_BATTLE = 3;
+    private static final int TAB_STATS = 4;
+
     private final JPanel nearbyContent = new JPanel();
     private final JPanel dexContent = new JPanel();
     private final JPanel gymContent = new JPanel();
@@ -146,6 +152,13 @@ public class OsrsGoPanel extends PluginPanel
         setupTab(gymContent, "Gyms");
         setupTab(battleContent, "Party");
         setupTab(statsContent, "Stats");
+        // A hidden tab is left stale on purpose, so the one being switched to
+        // has to be rebuilt on arrival rather than waiting for the next change
+        tabs.addChangeListener(e ->
+        {
+            lastFingerprint = "";
+            refresh();
+        });
         add(tabs, BorderLayout.CENTER);
 
         refresh();
@@ -342,16 +355,34 @@ public class OsrsGoPanel extends PluginPanel
         }
         lastFingerprint = fingerprint;
 
-        rebuildNearby();
-        rebuildDex(profile);
-        rebuildGyms(profile);
-        rebuildBattle();
-        rebuildStats(profile);
-        applyTooltips(nearbyContent);
-        applyTooltips(dexContent);
-        applyTooltips(gymContent);
-        applyTooltips(battleContent);
-        applyTooltips(statsContent);
+        // Only the tab actually on screen is rebuilt. Rebuilding all five cost
+        // about 90ms of the EDT every time, and roughly 76ms of that was the
+        // Dex laying out a row per owned mon that nobody could see, because
+        // the other four tabs are hidden behind this one.
+        switch (tabs.getSelectedIndex())
+        {
+            case TAB_DEX:
+                rebuildDex(profile);
+                applyTooltips(dexContent);
+                break;
+            case TAB_GYMS:
+                rebuildGyms(profile);
+                applyTooltips(gymContent);
+                break;
+            case TAB_BATTLE:
+                rebuildBattle();
+                applyTooltips(battleContent);
+                break;
+            case TAB_STATS:
+                rebuildStats(profile);
+                applyTooltips(statsContent);
+                break;
+            case TAB_NEARBY:
+            default:
+                rebuildNearby();
+                applyTooltips(nearbyContent);
+                break;
+        }
         updateTradeDialog();
         revalidate();
         repaint();
